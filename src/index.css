@@ -1,0 +1,99 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ==================== TEMAS DE COLOR ==================== */
+/* Naranja (default) */
+:root, [data-theme="naranja"] {
+  --p-50:  255 247 237;
+  --p-100: 255 237 213;
+  --p-200: 254 215 170;
+  --p-300: 253 186 116;
+  --p-400: 251 146 60;
+  --p-500: 249 115 22;
+  --p-600: 234 88 12;
+  --p-700: 194 65 12;
+}
+
+/* Azul */
+[data-theme="azul"] {
+  --p-50:  239 246 255;
+  --p-100: 219 234 254;
+  --p-200: 191 219 254;
+  --p-300: 147 197 253;
+  --p-400: 96 165 250;
+  --p-500: 59 130 246;
+  --p-600: 37 99 235;
+  --p-700: 29 78 216;
+}
+
+/* Verde */
+[data-theme="verde"] {
+  --p-50:  236 253 245;
+  --p-100: 209 250 229;
+  --p-200: 167 243 208;
+  --p-300: 110 231 183;
+  --p-400: 52 211 153;
+  --p-500: 16 185 129;
+  --p-600: 5 150 105;
+  --p-700: 4 120 87;
+}
+
+/* Morado */
+[data-theme="morado"] {
+  --p-50:  245 243 255;
+  --p-100: 237 233 254;
+  --p-200: 221 214 254;
+  --p-300: 196 181 253;
+  --p-400: 167 139 250;
+  --p-500: 139 92 246;
+  --p-600: 124 58 237;
+  --p-700: 109 40 217;
+}
+
+/* Rosa */
+[data-theme="rosa"] {
+  --p-50:  255 241 242;
+  --p-100: 255 228 230;
+  --p-200: 254 205 211;
+  --p-300: 253 164 175;
+  --p-400: 251 113 133;
+  --p-500: 244 63 94;
+  --p-600: 225 29 72;
+  --p-700: 190 18 60;
+}
+
+/* Rojo */
+[data-theme="rojo"] {
+  --p-50:  254 242 242;
+  --p-100: 254 226 226;
+  --p-200: 254 202 202;
+  --p-300: 252 165 165;
+  --p-400: 248 113 113;
+  --p-500: 239 68 68;
+  --p-600: 220 38 38;
+  --p-700: 185 28 28;
+}
+
+/* ==================== BASE ==================== */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  background-color: #f8fafc;
+  color: #1e293b;
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+  user-select: none;
+}
+
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: #f1f5f9; }
+::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+input, textarea, select, [contenteditable] { user-select: text; }
