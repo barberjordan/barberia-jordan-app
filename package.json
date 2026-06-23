@@ -1,0 +1,85 @@
+{
+  "name": "barberia-jordan",
+  "version": "1.0.1",
+  "description": "Sistema de gestión para Barbería Jordan",
+  "main": "electron/main.js",
+  "author": "Barbería Jordan",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently \"vite\" \"wait-on http://localhost:5173 && electron .\"",
+    "build": "vite build && electron-builder",
+    "build:win": "vite build && electron-builder --win",
+    "release": "vite build && electron-builder --win --publish always",
+    "preview": "vite preview",
+    "gen-icon": "node scripts/gen-icon.js"
+  },
+  "dependencies": {
+    "axios": "^1.7.0",
+    "electron-updater": "^6.3.9",
+    "jspdf": "^4.2.1",
+    "jspdf-autotable": "^5.0.8",
+    "lucide-react": "^0.400.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.24.0",
+    "recharts": "^2.12.7",
+    "sql.js": "^1.12.0",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.1",
+    "autoprefixer": "^10.4.19",
+    "concurrently": "^8.2.2",
+    "electron": "^42.4.1",
+    "electron-builder": "^26.15.3",
+    "postcss": "^8.4.39",
+    "tailwindcss": "^3.4.6",
+    "vite": "^8.0.16",
+    "vite-plugin-electron": "^0.28.7",
+    "wait-on": "^7.2.0",
+    "png-to-ico": "^2.1.8"
+  },
+  "build": {
+    "appId": "com.barberiajordan.app",
+    "productName": "Barbería Jordan",
+    "directories": {
+      "output": "dist-electron"
+    },
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "icon": "public/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "installerIcon": "public/icon.ico",
+      "uninstallerIcon": "public/icon.ico",
+      "installerLanguages": [
+        "es_ES"
+      ],
+      "language": "3082"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "node_modules/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "electron/",
+        "to": "electron/",
+        "filter": [
+          "**/*"
+        ]
+      }
+    ],
+    "publish": {
+      "provider": "github",
+      "owner": "barberjordan",
+      "repo": "barberia-jordan-app",
+      "releaseType": "release"
+    }
+  }
+}
