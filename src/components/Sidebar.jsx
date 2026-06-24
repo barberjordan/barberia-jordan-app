@@ -2,18 +2,19 @@ import React from 'react'
 import { NavLink } from 'react-router-dom'
 import {
   LayoutDashboard, Users, UserCheck, Scissors,
-  Calendar, BarChart2, Settings, LogOut
+  Calendar, BarChart2, Settings, LogOut, SlidersHorizontal
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 
 const links = [
-  { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-  { to: '/citas',     icon: Calendar,        label: 'Citas' },
-  { to: '/clientes',  icon: Users,           label: 'Clientes' },
-  { to: '/barberos',  icon: UserCheck,       label: 'Barberos' },
-  { to: '/servicios', icon: Scissors,        label: 'Servicios' },
-  { to: '/reportes',  icon: BarChart2,       label: 'Reportes' },
-  { to: '/usuarios',  icon: Settings,        label: 'Usuarios' },
+  { to: '/dashboard',     icon: LayoutDashboard,   label: 'Dashboard' },
+  { to: '/citas',         icon: Calendar,          label: 'Citas' },
+  { to: '/clientes',      icon: Users,             label: 'Clientes' },
+  { to: '/barberos',      icon: UserCheck,         label: 'Barberos' },
+  { to: '/servicios',     icon: Scissors,          label: 'Servicios' },
+  { to: '/reportes',      icon: BarChart2,         label: 'Reportes' },
+  { to: '/usuarios',      icon: Settings,          label: 'Usuarios' },
+  { to: '/configuracion', icon: SlidersHorizontal, label: 'Configuración' },
 ]
 
 export default function Sidebar({ open }) {

@@ -175,6 +175,13 @@ async function initDatabase() {
       valor TEXT
     )
   `)
+  db.run(`
+    CREATE TABLE IF NOT EXISTS comisiones_config (
+      barbero_id         INTEGER PRIMARY KEY,
+      porcentaje_barbero REAL    DEFAULT 40,
+      updated_at         TEXT    DEFAULT (datetime('now'))
+    )
+  `)
 
   // Migraciones
   try { db.run('ALTER TABLE usuarios ADD COLUMN barbero_id INTEGER') } catch {}
@@ -526,13 +533,45 @@ const dashboard = {
   `),
 
   /**
-   * Comisiones del mes indicado (o del mes actual si no se pasa parámetro).
-   * Regla: 40% para el barbero, 60% para el dueño (ganancias).
+   * Historial mensual de los últimos N meses: ventas, pago barberos y ganancia admin.
+   * Usa los porcentajes configurados en comisiones_config (default 40%).
+   */
+  getBalanceHistorico: (meses = 6) => {
+    const desde = new Date()
+    desde.setMonth(desde.getMonth() - (meses - 1))
+    desde.setDate(1)
+    const desdeStr = desde.toISOString().slice(0, 10)
+
+    return qAll(`
+      SELECT
+        strftime('%Y-%m', c.fecha) AS mes,
+        COALESCE(SUM(c.precio_total), 0) AS total_ventas,
+        COALESCE(SUM(
+          c.precio_total
+          * COALESCE((SELECT porcentaje_barbero FROM comisiones_config WHERE barbero_id = b.id), 40)
+          / 100.0
+        ), 0) AS pago_barberos,
+        COALESCE(SUM(
+          c.precio_total
+          * (100 - COALESCE((SELECT porcentaje_barbero FROM comisiones_config WHERE barbero_id = b.id), 40))
+          / 100.0
+        ), 0) AS ganancia_admin
+      FROM citas c
+      LEFT JOIN barberos b ON (c.barbero_id = b.id OR c.barbero_id = b.server_id)
+      WHERE c.estado = 'completada'
+        AND c.fecha >= ?
+      GROUP BY strftime('%Y-%m', c.fecha)
+      ORDER BY mes ASC
+    `, [desdeStr])
+  },
+
+  /**
+   * Comisiones del mes indicado usando porcentajes configurados por barbero.
+   * Si no hay config para un barbero, se usa 40% por defecto.
    * Solo cuenta citas con estado = 'completada'.
    */
   getComisionesMes: (mesInicio) => {
     const inicio = mesInicio || (new Date().toISOString().slice(0, 7) + '-01')
-    // Siguiente mes para el límite superior
     const [y, m] = inicio.slice(0, 7).split('-').map(Number)
     const fin = m === 12
       ? `${y + 1}-01-01`
@@ -544,8 +583,18 @@ const dashboard = {
         b.nombre AS barbero,
         COUNT(c.id)                              AS citas_completadas,
         COALESCE(SUM(c.precio_total), 0)         AS total_ventas,
-        COALESCE(SUM(c.precio_total), 0) * 0.40  AS pago_barbero,
-        COALESCE(SUM(c.precio_total), 0) * 0.60  AS ganancia_admin
+        COALESCE(
+          (SELECT porcentaje_barbero FROM comisiones_config WHERE barbero_id = b.id),
+          40
+        ) AS pct_barbero,
+        COALESCE(SUM(c.precio_total), 0)
+          * COALESCE((SELECT porcentaje_barbero FROM comisiones_config WHERE barbero_id = b.id), 40)
+          / 100.0
+          AS pago_barbero,
+        COALESCE(SUM(c.precio_total), 0)
+          * (100 - COALESCE((SELECT porcentaje_barbero FROM comisiones_config WHERE barbero_id = b.id), 40))
+          / 100.0
+          AS ganancia_admin
       FROM barberos b
       LEFT JOIN citas c
         ON (c.barbero_id = b.id OR c.barbero_id = b.server_id)
@@ -577,6 +626,28 @@ const config = {
   set: (clave, valor) => qRun('INSERT OR REPLACE INTO config (clave,valor) VALUES (?,?)', [clave, String(valor)]),
 }
 
+// ==================== COMISIONES CONFIG ====================
+
+const comisionesConfig = {
+  /** Devuelve [{barbero_id, nombre, porcentaje_barbero}] para todos los barberos activos */
+  getAll: () => qAll(`
+    SELECT b.id AS barbero_id, b.nombre,
+      COALESCE(cc.porcentaje_barbero, 40) AS porcentaje_barbero
+    FROM barberos b
+    LEFT JOIN comisiones_config cc ON cc.barbero_id = b.id
+    WHERE b.activo = 1
+    ORDER BY b.nombre
+  `),
+  /** Guarda el porcentaje del barbero (el resto es para el admin) */
+  set: (barberoId, porcentajeBarbero) => {
+    qRun(
+      `INSERT OR REPLACE INTO comisiones_config (barbero_id, porcentaje_barbero, updated_at)
+       VALUES (?, ?, datetime('now'))`,
+      [barberoId, porcentajeBarbero]
+    )
+  },
+}
+
 module.exports = {
   initDatabase,
   loginLocal,
@@ -588,4 +659,5 @@ module.exports = {
   dashboard,
   syncQueue,
   config,
+  comisionesConfig,
 }

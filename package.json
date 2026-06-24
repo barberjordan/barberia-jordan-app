@@ -1,6 +1,6 @@
 {
   "name": "barberia-jordan",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "Sistema de gestión para Barbería Jordan",
   "main": "electron/main.js",
   "author": "Barbería Jordan",
@@ -79,7 +79,7 @@
       "provider": "github",
       "owner": "barberjordan",
       "repo": "barberia-jordan-app",
-      "releaseType": "release"
+      "releaseType": "draft"
     }
   }
 }

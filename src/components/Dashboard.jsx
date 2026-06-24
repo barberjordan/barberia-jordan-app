@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
-import { Calendar, Users, DollarSign, UserCheck, Clock, TrendingUp, Wallet, BadgeDollarSign } from 'lucide-react'
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts'
+import { Calendar, Users, DollarSign, UserCheck, Clock, TrendingUp, Wallet, BadgeDollarSign, TrendingDown } from 'lucide-react'
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend, LineChart, Line, CartesianGrid } from 'recharts'
 
 const COLORS = ['#f97316', '#3b82f6', '#10b981', '#8b5cf6', '#f59e0b']
 
@@ -32,24 +32,27 @@ function StatCard({ icon: Icon, label, value, color = 'primary', sub }) {
 }
 
 export default function Dashboard() {
-  const [stats, setStats]         = useState(null)
-  const [porDia, setPorDia]       = useState([])
-  const [topSvc, setTopSvc]       = useState([])
-  const [comisiones, setComisiones] = useState([])
-  const [loading, setLoading]     = useState(true)
+  const [stats, setStats]             = useState(null)
+  const [porDia, setPorDia]           = useState([])
+  const [topSvc, setTopSvc]           = useState([])
+  const [comisiones, setComisiones]   = useState([])
+  const [historico, setHistorico]     = useState([])
+  const [loading, setLoading]         = useState(true)
 
   useEffect(() => {
     async function cargar() {
-      const [s, d, t, c] = await Promise.all([
+      const [s, d, t, c, h] = await Promise.all([
         window.api.dashboard.getStats(),
         window.api.dashboard.getCitasPorDia(),
         window.api.dashboard.getTopServicios(),
         window.api.dashboard.getComisionesMes(),
+        window.api.dashboard.getBalanceHistorico(6),
       ])
       setStats(s)
       setPorDia(d.map(r => ({ ...r, fecha: r.fecha.slice(5) })))
       setTopSvc(t)
       setComisiones(c)
+      setHistorico(h.map(r => ({ ...r, mes: r.mes.slice(5) }))) // solo MM
       setLoading(false)
     }
     cargar()
@@ -59,9 +62,14 @@ export default function Dashboard() {
     <div className="flex items-center justify-center h-64 text-slate-400">Cargando dashboard...</div>
   )
 
-  const totalPagoBarberos = comisiones.reduce((a, b) => a + Number(b.pago_barbero || 0), 0)
+  const totalPagoBarberos  = comisiones.reduce((a, b) => a + Number(b.pago_barbero  || 0), 0)
   const totalGananciaAdmin = comisiones.reduce((a, b) => a + Number(b.ganancia_admin || 0), 0)
   const mesActual = new Date().toLocaleString('es-ES', { month: 'long', year: 'numeric' })
+
+  // Promedio de ganancia admin en los últimos 6 meses
+  const promedioAdmin = historico.length
+    ? historico.reduce((a, r) => a + Number(r.ganancia_admin || 0), 0) / historico.length
+    : 0
 
   return (
     <div className="space-y-6">
@@ -74,19 +82,21 @@ export default function Dashboard() {
 
       {/* Stat cards */}
       <div className="grid grid-cols-2 xl:grid-cols-3 gap-4">
-        <StatCard icon={Calendar}     label="Citas hoy"        value={stats.citas_hoy}        color="primary" />
-        <StatCard icon={Clock}        label="Citas este mes"   value={stats.citas_mes}        color="blue" />
-        <StatCard icon={DollarSign}   label="Ingresos mes"     value={`$${fmt(stats.ingresos_mes)}`} color="green" />
-        <StatCard icon={Users}        label="Total clientes"   value={stats.total_clientes}   color="purple" />
-        <StatCard icon={UserCheck}    label="Barberos activos" value={stats.barberos_activos} color="primary" />
-        <StatCard icon={TrendingUp}   label="Citas pendientes" value={stats.citas_pendientes} color="blue" />
+        <StatCard icon={Calendar}       label="Citas hoy"            value={stats.citas_hoy}                    color="primary" />
+        <StatCard icon={Clock}          label="Citas este mes"       value={stats.citas_mes}                    color="blue" />
+        <StatCard icon={DollarSign}     label="Ingresos del mes"     value={`$${fmt(stats.ingresos_mes)}`}      color="green" />
+        <StatCard icon={BadgeDollarSign} label="Tu ganancia este mes" value={`$${fmt(totalGananciaAdmin)}`}     color="green"
+          sub="Solo citas completadas" />
+        <StatCard icon={TrendingUp}     label="Promedio mensual (6m)" value={`$${fmt(promedioAdmin)}`}          color="purple"
+          sub="Tu ganancia promedio" />
+        <StatCard icon={UserCheck}      label="Citas pendientes"     value={stats.citas_pendientes}             color="blue" />
       </div>
 
       {/* ==================== COMISIONES DEL MES ==================== */}
       <div>
         <h2 className="text-base font-bold text-slate-700 mb-3">
           Liquidación del mes — <span className="capitalize text-primary-600">{mesActual}</span>
-          <span className="ml-2 text-xs font-normal text-slate-400">(solo citas completadas · 40% barbero / 60% admin)</span>
+          <span className="ml-2 text-xs font-normal text-slate-400">(solo citas completadas · % configurado por barbero)</span>
         </h2>
 
         {/* Resumen total */}
@@ -119,8 +129,8 @@ export default function Dashboard() {
                 <th className="px-4 py-3 text-left">Barbero</th>
                 <th className="px-4 py-3 text-right">Citas</th>
                 <th className="px-4 py-3 text-right">Total vendido</th>
-                <th className="px-4 py-3 text-right">Pago barbero (40%)</th>
-                <th className="px-4 py-3 text-right">Ganancia admin (60%)</th>
+                <th className="px-4 py-3 text-right">Pago barbero</th>
+                <th className="px-4 py-3 text-right">Ganancia admin</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -145,9 +155,11 @@ export default function Dashboard() {
                   <td className="px-4 py-3 text-right text-slate-700">${fmt(b.total_ventas)}</td>
                   <td className="px-4 py-3 text-right">
                     <span className="font-semibold text-amber-600">${fmt(b.pago_barbero)}</span>
+                    <span className="ml-1 text-xs text-slate-400">({b.pct_barbero}%)</span>
                   </td>
                   <td className="px-4 py-3 text-right">
                     <span className="font-semibold text-green-600">${fmt(b.ganancia_admin)}</span>
+                    <span className="ml-1 text-xs text-slate-400">({100 - b.pct_barbero}%)</span>
                   </td>
                 </tr>
               ))}
@@ -168,6 +180,38 @@ export default function Dashboard() {
           </table>
         </div>
       </div>
+
+      {/* ==================== BALANCE ÚLTIMOS 6 MESES ==================== */}
+      {historico.length > 0 && (
+        <div className="bg-white rounded-xl p-5 shadow-sm border border-slate-100">
+          <h2 className="font-semibold text-slate-700 mb-1">Balance últimos 6 meses</h2>
+          <p className="text-xs text-slate-400 mb-4">Evolución de ingresos totales vs tu ganancia</p>
+          <ResponsiveContainer width="100%" height={200}>
+            <BarChart data={historico} barGap={4}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+              <XAxis dataKey="mes" tick={{ fontSize: 11 }} />
+              <YAxis tick={{ fontSize: 10 }} tickFormatter={v => `$${(v/1000).toFixed(0)}k`} />
+              <Tooltip formatter={(v, name) => [`$${fmt(v)}`, name]} />
+              <Bar dataKey="total_ventas"  name="Total ingresos"  fill="#93c5fd" radius={[3,3,0,0]} />
+              <Bar dataKey="ganancia_admin" name="Tu ganancia"    fill="#22c55e" radius={[3,3,0,0]} />
+              <Bar dataKey="pago_barberos"  name="Pago barberos"  fill="#fbbf24" radius={[3,3,0,0]} />
+            </BarChart>
+          </ResponsiveContainer>
+          {/* Resumen numérico */}
+          <div className="grid grid-cols-3 gap-3 mt-4">
+            {[
+              { label: 'Total generado', val: historico.reduce((a,r)=>a+Number(r.total_ventas||0),0), color: 'text-blue-600' },
+              { label: 'Tu ganancia total', val: historico.reduce((a,r)=>a+Number(r.ganancia_admin||0),0), color: 'text-green-600' },
+              { label: 'Pagado a barberos', val: historico.reduce((a,r)=>a+Number(r.pago_barberos||0),0), color: 'text-amber-600' },
+            ].map(({ label, val, color }) => (
+              <div key={label} className="bg-slate-50 rounded-lg p-3 text-center">
+                <p className="text-xs text-slate-400">{label}</p>
+                <p className={`font-bold text-sm mt-0.5 ${color}`}>${fmt(val)}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Gráficas */}
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">

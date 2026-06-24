@@ -1,7 +1,7 @@
 const { app, BrowserWindow, ipcMain, shell } = require('electron')
 const path = require('path')
 const { autoUpdater } = require('electron-updater')
-const { initDatabase, loginLocal, usuarios, barberos, clientes, servicios, citas, dashboard, config } = require('./database')
+const { initDatabase, loginLocal, usuarios, barberos, clientes, servicios, citas, dashboard, config, comisionesConfig } = require('./database')
 const sync = require('./sync')
 
 const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged
@@ -9,6 +9,18 @@ const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged
 let mainWindow = null
 
 // ==================== AUTO-UPDATER ====================
+
+// Estado global de actualización (para reenviar al renderer si carga tarde)
+let updateState = null // null | { tipo: 'disponible'|'descargada', version }
+
+function enviarEstadoUpdate() {
+  if (!updateState || !mainWindow || mainWindow.isDestroyed()) return
+  if (updateState.tipo === 'disponible') {
+    mainWindow.webContents.send('update:disponible', { version: updateState.version })
+  } else if (updateState.tipo === 'descargada') {
+    mainWindow.webContents.send('update:descargada', { version: updateState.version })
+  }
+}
 
 function configurarAutoUpdater() {
   // En desarrollo no verificar actualizaciones
@@ -25,6 +37,7 @@ function configurarAutoUpdater() {
 
   autoUpdater.on('update-available', (info) => {
     console.log(`🔄 Actualización disponible: v${info.version}`)
+    updateState = { tipo: 'disponible', version: info.version }
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send('update:disponible', { version: info.version })
     }
@@ -41,6 +54,7 @@ function configurarAutoUpdater() {
 
   autoUpdater.on('update-downloaded', (info) => {
     console.log(`✅ Actualización descargada: v${info.version}`)
+    updateState = { tipo: 'descargada', version: info.version }
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send('update:descargada', { version: info.version })
     }
@@ -55,6 +69,9 @@ function configurarAutoUpdater() {
 ipcMain.handle('update:instalar', () => {
   autoUpdater.quitAndInstall(false, true) // no silencioso, reiniciar al instante
 })
+
+// IPC: el renderer pide el estado actual (por si montó después del evento)
+ipcMain.handle('update:estado', () => updateState)
 
 // ==================== VENTANA PRINCIPAL ====================
 function createWindow() {
@@ -159,10 +176,11 @@ ipcMain.handle('citas:update',      (_e, id, data) => citas.update(id, data))
 ipcMain.handle('citas:delete',      (_e, id) => citas.delete(id))
 
 // DASHBOARD
-ipcMain.handle('dashboard:getStats',         () => dashboard.getStats())
-ipcMain.handle('dashboard:getCitasPorDia',   () => dashboard.getCitasPorDia())
-ipcMain.handle('dashboard:getTopServicios',  () => dashboard.getTopServicios())
-ipcMain.handle('dashboard:getComisionesMes', (_e, mes) => dashboard.getComisionesMes(mes))
+ipcMain.handle('dashboard:getStats',            () => dashboard.getStats())
+ipcMain.handle('dashboard:getCitasPorDia',      () => dashboard.getCitasPorDia())
+ipcMain.handle('dashboard:getTopServicios',     () => dashboard.getTopServicios())
+ipcMain.handle('dashboard:getComisionesMes',    (_e, mes) => dashboard.getComisionesMes(mes))
+ipcMain.handle('dashboard:getBalanceHistorico', (_e, meses) => dashboard.getBalanceHistorico(meses))
 
 // SYNC
 ipcMain.handle('sync:forzar', async () => {
@@ -176,3 +194,7 @@ ipcMain.handle('config:set', (_e, clave, valor) => {
   config.set(clave, valor)
   return true
 })
+
+// COMISIONES CONFIG
+ipcMain.handle('comisiones:getConfig',   ()          => comisionesConfig.getAll())
+ipcMain.handle('comisiones:setConfig',   (_e, id, pct) => { comisionesConfig.set(id, pct); return true })

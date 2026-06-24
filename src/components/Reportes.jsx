@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { FileSpreadsheet, FileText, Wallet, BadgeDollarSign } from 'lucide-react'
+import { FileSpreadsheet, FileText, Wallet, BadgeDollarSign, TrendingUp } from 'lucide-react'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
 import * as XLSX from 'xlsx'
 import jsPDF from 'jspdf'
@@ -12,20 +12,27 @@ function fmt(n) {
 export default function Reportes() {
   const [citas, setCitas]           = useState([])
   const [comisiones, setComisiones] = useState([])
+  const [historico, setHistorico]   = useState([])
   const [mes, setMes]               = useState(new Date().toISOString().slice(0, 7))
 
   useEffect(() => {
     async function cargar() {
       const mesInicio = mes + '-01'
-      const [c, com] = await Promise.all([
+      const [c, com, h] = await Promise.all([
         window.api.citas.getAll(),
         window.api.dashboard.getComisionesMes(mesInicio),
+        window.api.dashboard.getBalanceHistorico(6),
       ])
       setCitas(c)
       setComisiones(com)
+      setHistorico(h)
     }
     cargar()
   }, [mes])
+
+  const promedioAdmin = historico.length
+    ? historico.reduce((a, r) => a + Number(r.ganancia_admin || 0), 0) / historico.length
+    : 0
 
   const citasMes      = citas.filter(c => c.fecha?.startsWith(mes))
   const completadas   = citasMes.filter(c => c.estado === 'completada')
@@ -176,16 +183,47 @@ export default function Reportes() {
       {/* Resumen rápido */}
       <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
         {[
-          { label: 'Total citas',   value: citasMes.length,        color: 'text-blue-600',    bg: 'bg-blue-50' },
-          { label: 'Completadas',   value: completadas.length,     color: 'text-green-600',   bg: 'bg-green-50' },
-          { label: 'Ingresos',      value: `$${fmt(ingresosMes)}`, color: 'text-primary-600', bg: 'bg-primary-50' },
-          { label: 'Citas sin fecha', value: citas.filter(c => !c.fecha).length, color: 'text-slate-600', bg: 'bg-slate-50' },
+          { label: 'Total citas',        value: citasMes.length,         color: 'text-blue-600',    bg: 'bg-blue-50' },
+          { label: 'Completadas',        value: completadas.length,      color: 'text-green-600',   bg: 'bg-green-50' },
+          { label: 'Ingresos del mes',   value: `$${fmt(ingresosMes)}`,  color: 'text-primary-600', bg: 'bg-primary-50' },
+          { label: 'Tu ganancia',        value: `$${fmt(totalAdmin)}`,   color: 'text-green-700',   bg: 'bg-green-50' },
         ].map(({ label, value, color, bg }) => (
           <div key={label} className={`${bg} rounded-xl p-4 border border-slate-100`}>
             <p className="text-slate-500 text-xs">{label}</p>
             <p className={`text-xl font-bold mt-1 ${color}`}>{value}</p>
           </div>
         ))}
+      </div>
+
+      {/* Balance y promedio */}
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
+        <div className="bg-green-50 border border-green-100 rounded-xl p-4 flex items-center gap-4">
+          <div className="w-10 h-10 bg-green-600 rounded-xl flex items-center justify-center shrink-0">
+            <BadgeDollarSign size={20} className="text-white" />
+          </div>
+          <div>
+            <p className="text-xs text-green-700 font-medium">Tu ganancia — {mes}</p>
+            <p className="text-2xl font-bold text-green-800">${fmt(totalAdmin)}</p>
+          </div>
+        </div>
+        <div className="bg-purple-50 border border-purple-100 rounded-xl p-4 flex items-center gap-4">
+          <div className="w-10 h-10 bg-purple-600 rounded-xl flex items-center justify-center shrink-0">
+            <TrendingUp size={20} className="text-white" />
+          </div>
+          <div>
+            <p className="text-xs text-purple-700 font-medium">Promedio mensual (6 meses)</p>
+            <p className="text-2xl font-bold text-purple-800">${fmt(promedioAdmin)}</p>
+          </div>
+        </div>
+        <div className="bg-amber-50 border border-amber-100 rounded-xl p-4 flex items-center gap-4">
+          <div className="w-10 h-10 bg-amber-500 rounded-xl flex items-center justify-center shrink-0">
+            <Wallet size={20} className="text-white" />
+          </div>
+          <div>
+            <p className="text-xs text-amber-700 font-medium">Pago total barberos — {mes}</p>
+            <p className="text-2xl font-bold text-amber-800">${fmt(totalBarberos)}</p>
+          </div>
+        </div>
       </div>
 
       {/* ==================== LIQUIDACIÓN DE BARBEROS ==================== */}

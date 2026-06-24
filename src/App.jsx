@@ -13,6 +13,7 @@ import Servicios from './components/Servicios'
 import Citas from './components/Citas'
 import Reportes from './components/Reportes'
 import Usuarios from './components/Usuarios'
+import Configuracion from './components/Configuracion'
 import { Download, RefreshCw, X } from 'lucide-react'
 
 // ==================== NOTIFICACIÓN DE ACTUALIZACIÓN ====================
@@ -24,6 +25,18 @@ function UpdateBanner() {
 
   useEffect(() => {
     if (!window.api?.updater) return
+
+    // Consultar estado actual (por si el evento llegó antes de que este componente montara)
+    window.api.updater.getEstado().then((estado) => {
+      if (!estado) return
+      setVersion(estado.version)
+      if (estado.tipo === 'descargada') {
+        setEstado('lista')
+      } else if (estado.tipo === 'disponible') {
+        setEstado('disponible')
+      }
+      setCerrado(false)
+    })
 
     window.api.updater.onDisponible(({ version: v }) => {
       setVersion(v)
@@ -108,8 +121,9 @@ function AppInner() {
             <Route path="/servicios"  element={<Servicios />} />
             <Route path="/citas"      element={<Citas />} />
             <Route path="/reportes"   element={<Reportes />} />
-            <Route path="/usuarios"   element={<Usuarios />} />
-            <Route path="*"           element={<Navigate to="/dashboard" />} />
+            <Route path="/usuarios"       element={<Usuarios />} />
+            <Route path="/configuracion"  element={<Configuracion />} />
+            <Route path="*"               element={<Navigate to="/dashboard" />} />
           </Routes>
         </main>
       </div>

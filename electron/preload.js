@@ -48,10 +48,11 @@ contextBridge.exposeInMainWorld('api', {
 
   // ---- DASHBOARD ----
   dashboard: {
-    getStats:          ()      => ipcRenderer.invoke('dashboard:getStats'),
-    getCitasPorDia:    ()      => ipcRenderer.invoke('dashboard:getCitasPorDia'),
-    getTopServicios:   ()      => ipcRenderer.invoke('dashboard:getTopServicios'),
-    getComisionesMes:  (mes)   => ipcRenderer.invoke('dashboard:getComisionesMes', mes),
+    getStats:             ()       => ipcRenderer.invoke('dashboard:getStats'),
+    getCitasPorDia:       ()       => ipcRenderer.invoke('dashboard:getCitasPorDia'),
+    getTopServicios:      ()       => ipcRenderer.invoke('dashboard:getTopServicios'),
+    getComisionesMes:     (mes)    => ipcRenderer.invoke('dashboard:getComisionesMes', mes),
+    getBalanceHistorico:  (meses)  => ipcRenderer.invoke('dashboard:getBalanceHistorico', meses),
   },
 
   // ---- SYNC ----
@@ -70,11 +71,18 @@ contextBridge.exposeInMainWorld('api', {
     set: (clave, valor) => ipcRenderer.invoke('config:set', clave, valor),
   },
 
+  // ---- COMISIONES CONFIG ----
+  comisiones: {
+    getConfig: ()          => ipcRenderer.invoke('comisiones:getConfig'),
+    setConfig: (id, pct)   => ipcRenderer.invoke('comisiones:setConfig', id, pct),
+  },
+
   // ---- ACTUALIZACIONES ----
   updater: {
     onDisponible:  (cb) => ipcRenderer.on('update:disponible', (_e, data) => cb(data)),
     onProgreso:    (cb) => ipcRenderer.on('update:progreso',   (_e, data) => cb(data)),
     onDescargada:  (cb) => ipcRenderer.on('update:descargada', (_e, data) => cb(data)),
     instalar:      ()   => ipcRenderer.invoke('update:instalar'),
+    getEstado:     ()   => ipcRenderer.invoke('update:estado'),
   },
 })
