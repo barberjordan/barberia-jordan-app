@@ -36,7 +36,7 @@ export default function Clientes() {
   }
 
   async function eliminar(id) {
-    if (!confirm('¿Eliminar cliente?')) return
+    if (!await window.api.dialog.confirm('¿Eliminar cliente?')) return
     await window.api.clientes.delete(id)
     await cargar()
   }

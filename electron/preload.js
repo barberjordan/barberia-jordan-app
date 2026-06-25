@@ -77,6 +77,16 @@ contextBridge.exposeInMainWorld('api', {
     setConfig: (id, pct)   => ipcRenderer.invoke('comisiones:setConfig', id, pct),
   },
 
+  // ---- APP ----
+  app: {
+    getVersion: () => ipcRenderer.invoke('app:getVersion'),
+  },
+
+  // ---- DIALOGS ----
+  dialog: {
+    confirm: (msg) => ipcRenderer.invoke('dialog:confirm', msg),
+  },
+
   // ---- ACTUALIZACIONES ----
   updater: {
     onDisponible:  (cb) => ipcRenderer.on('update:disponible', (_e, data) => cb(data)),

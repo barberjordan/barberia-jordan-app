@@ -28,7 +28,7 @@ export default function Servicios() {
   }
 
   async function eliminar(id) {
-    if (!confirm('¿Eliminar servicio?')) return
+    if (!await window.api.dialog.confirm('¿Eliminar servicio?')) return
     await window.api.servicios.delete(id)
     await cargar()
   }

@@ -76,7 +76,7 @@ export default function Citas() {
   }
 
   async function eliminar(id) {
-    if (!confirm('¿Eliminar cita?')) return
+    if (!await window.api.dialog.confirm('¿Eliminar cita?')) return
     await window.api.citas.delete(id)
     await cargar()
   }

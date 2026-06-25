@@ -36,7 +36,7 @@ export default function Usuarios() {
 
   async function eliminar(id) {
     if (id === me?.id) return alert('No puedes eliminar tu propia cuenta')
-    if (!confirm('¿Eliminar usuario?')) return
+    if (!await window.api.dialog.confirm('¿Eliminar usuario?')) return
     await window.api.usuarios.delete(id)
     await cargar()
   }

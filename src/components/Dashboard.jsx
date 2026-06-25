@@ -37,22 +37,25 @@ export default function Dashboard() {
   const [topSvc, setTopSvc]           = useState([])
   const [comisiones, setComisiones]   = useState([])
   const [historico, setHistorico]     = useState([])
+  const [configPct, setConfigPct]     = useState([])   // [{barbero_id, porcentaje_barbero}]
   const [loading, setLoading]         = useState(true)
 
   useEffect(() => {
     async function cargar() {
-      const [s, d, t, c, h] = await Promise.all([
+      const [s, d, t, c, h, cfg] = await Promise.all([
         window.api.dashboard.getStats(),
         window.api.dashboard.getCitasPorDia(),
         window.api.dashboard.getTopServicios(),
         window.api.dashboard.getComisionesMes(),
         window.api.dashboard.getBalanceHistorico(6),
+        window.api.comisiones.getConfig(),
       ])
       setStats(s)
       setPorDia(d.map(r => ({ ...r, fecha: r.fecha.slice(5) })))
       setTopSvc(t)
       setComisiones(c)
       setHistorico(h.map(r => ({ ...r, mes: r.mes.slice(5) }))) // solo MM
+      setConfigPct(cfg)
       setLoading(false)
     }
     cargar()
@@ -64,12 +67,33 @@ export default function Dashboard() {
 
   const totalPagoBarberos  = comisiones.reduce((a, b) => a + Number(b.pago_barbero  || 0), 0)
   const totalGananciaAdmin = comisiones.reduce((a, b) => a + Number(b.ganancia_admin || 0), 0)
+  const totalVentas        = comisiones.reduce((a, b) => a + Number(b.total_ventas   || 0), 0)
   const mesActual = new Date().toLocaleString('es-ES', { month: 'long', year: 'numeric' })
 
   // Promedio de ganancia admin en los últimos 6 meses
   const promedioAdmin = historico.length
     ? historico.reduce((a, r) => a + Number(r.ganancia_admin || 0), 0) / historico.length
     : 0
+
+  // Porcentaje efectivo: si hay datos reales los calculamos, si no usamos la config
+  const pctBarberoLabel = (() => {
+    if (totalVentas > 0) {
+      return Math.round(totalPagoBarberos / totalVentas * 100) + '%'
+    }
+    const pcts = configPct.map(c => c.porcentaje_barbero)
+    if (pcts.length === 0) return '40%'
+    const unico = pcts.every(p => p === pcts[0])
+    return unico ? pcts[0] + '%' : pcts[0] + '%+'
+  })()
+  const pctAdminLabel = (() => {
+    if (totalVentas > 0) {
+      return Math.round(totalGananciaAdmin / totalVentas * 100) + '%'
+    }
+    const pcts = configPct.map(c => 100 - c.porcentaje_barbero)
+    if (pcts.length === 0) return '60%'
+    const unico = pcts.every(p => p === pcts[0])
+    return unico ? pcts[0] + '%' : pcts[0] + '%+'
+  })()
 
   return (
     <div className="space-y-6">
@@ -100,13 +124,13 @@ export default function Dashboard() {
         </h2>
 
         {/* Resumen total */}
-        <div className="grid grid-cols-2 gap-4 mb-4">
+        <div className="mb-4 grid grid-cols-1 xl:grid-cols-2 gap-3 max-w-2xl">
           <div className="bg-amber-50 border border-amber-100 rounded-xl p-4 flex items-center gap-4">
             <div className="w-10 h-10 bg-amber-500 rounded-xl flex items-center justify-center shrink-0">
               <Wallet size={20} className="text-white" />
             </div>
             <div>
-              <p className="text-xs text-amber-700 font-medium">Total a pagar a barberos (40%)</p>
+              <p className="text-xs text-amber-700 font-medium">Total a pagar a barberos ({pctBarberoLabel})</p>
               <p className="text-xl font-bold text-amber-800">${fmt(totalPagoBarberos)}</p>
             </div>
           </div>
@@ -115,7 +139,7 @@ export default function Dashboard() {
               <BadgeDollarSign size={20} className="text-white" />
             </div>
             <div>
-              <p className="text-xs text-green-700 font-medium">Ganancia del dueño (60%)</p>
+              <p className="text-xs text-green-700 font-medium">Ganancia del dueño ({pctAdminLabel})</p>
               <p className="text-xl font-bold text-green-800">${fmt(totalGananciaAdmin)}</p>
             </div>
           </div>
@@ -129,8 +153,8 @@ export default function Dashboard() {
                 <th className="px-4 py-3 text-left">Barbero</th>
                 <th className="px-4 py-3 text-right">Citas</th>
                 <th className="px-4 py-3 text-right">Total vendido</th>
-                <th className="px-4 py-3 text-right">Pago barbero</th>
-                <th className="px-4 py-3 text-right">Ganancia admin</th>
+                <th className="px-4 py-3 text-right">Comisión barbero</th>
+                <th className="px-4 py-3 text-right">Ganancia dueño</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">

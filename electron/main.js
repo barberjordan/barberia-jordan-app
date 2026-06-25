@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, shell } = require('electron')
+const { app, BrowserWindow, ipcMain, shell, dialog } = require('electron')
 const path = require('path')
 const { autoUpdater } = require('electron-updater')
 const { initDatabase, loginLocal, usuarios, barberos, clientes, servicios, citas, dashboard, config, comisionesConfig } = require('./database')
@@ -106,6 +106,11 @@ function createWindow() {
     mainWindow = null
   })
 
+  // Recuperar foco del teclado cuando la ventana vuelve a estar activa
+  mainWindow.on('focus', () => {
+    mainWindow.webContents.focus()
+  })
+
   // Abre links externos en el navegador del sistema
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     shell.openExternal(url)
@@ -198,3 +203,18 @@ ipcMain.handle('config:set', (_e, clave, valor) => {
 // COMISIONES CONFIG
 ipcMain.handle('comisiones:getConfig',   ()          => comisionesConfig.getAll())
 ipcMain.handle('comisiones:setConfig',   (_e, id, pct) => { comisionesConfig.set(id, pct); return true })
+
+// APP INFO
+ipcMain.handle('app:getVersion', () => app.getVersion())
+
+// DIALOG CONFIRM (evita que window.confirm() rompa el foco del teclado en Electron)
+ipcMain.handle('dialog:confirm', (_e, message) => {
+  return dialog.showMessageBoxSync(mainWindow, {
+    type: 'question',
+    title: 'Confirmar',
+    message,
+    buttons: ['Cancelar', 'Sí, eliminar'],
+    defaultId: 0,
+    cancelId: 0,
+  }) === 1
+})

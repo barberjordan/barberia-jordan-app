@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { Eye, EyeOff } from 'lucide-react'
 
@@ -7,6 +7,11 @@ export default function Login() {
   const [email, setEmail]       = useState('')
   const [password, setPassword] = useState('')
   const [showPass, setShowPass] = useState(false)
+  const [version, setVersion]   = useState('')
+
+  useEffect(() => {
+    window.api.app.getVersion().then(v => setVersion(v)).catch(() => {})
+  }, [])
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -84,7 +89,7 @@ export default function Login() {
         </form>
 
         <p className="text-center text-xs text-slate-400 mt-6">
-          v1.0.0 · Modo offline disponible
+          {version ? `v${version}` : ''} · Modo offline disponible
         </p>
       </div>
     </div>

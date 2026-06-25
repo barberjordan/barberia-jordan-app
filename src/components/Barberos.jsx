@@ -30,7 +30,7 @@ export default function Barberos() {
   }
 
   async function eliminar(id) {
-    if (!confirm('¿Eliminar barbero?')) return
+    if (!await window.api.dialog.confirm('¿Eliminar barbero?')) return
     await window.api.barberos.delete(id)
     await cargar()
   }

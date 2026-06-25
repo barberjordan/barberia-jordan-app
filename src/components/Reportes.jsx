@@ -13,19 +13,22 @@ export default function Reportes() {
   const [citas, setCitas]           = useState([])
   const [comisiones, setComisiones] = useState([])
   const [historico, setHistorico]   = useState([])
+  const [configPct, setConfigPct]   = useState([])
   const [mes, setMes]               = useState(new Date().toISOString().slice(0, 7))
 
   useEffect(() => {
     async function cargar() {
       const mesInicio = mes + '-01'
-      const [c, com, h] = await Promise.all([
+      const [c, com, h, cfg] = await Promise.all([
         window.api.citas.getAll(),
         window.api.dashboard.getComisionesMes(mesInicio),
         window.api.dashboard.getBalanceHistorico(6),
+        window.api.comisiones.getConfig(),
       ])
       setCitas(c)
       setComisiones(com)
       setHistorico(h)
+      setConfigPct(cfg)
     }
     cargar()
   }, [mes])
@@ -39,6 +42,20 @@ export default function Reportes() {
   const ingresosMes   = completadas.reduce((a, c) => a + Number(c.precio_total), 0)
   const totalBarberos = comisiones.reduce((a, b) => a + Number(b.pago_barbero || 0), 0)
   const totalAdmin    = comisiones.reduce((a, b) => a + Number(b.ganancia_admin || 0), 0)
+
+  // Porcentajes dinámicos según config o datos reales del mes
+  const pctBarberoLabel = (() => {
+    if (ingresosMes > 0) return Math.round(totalBarberos / ingresosMes * 100) + '%'
+    const pcts = configPct.map(c => c.porcentaje_barbero)
+    if (pcts.length === 0) return '40%'
+    return pcts.every(p => p === pcts[0]) ? pcts[0] + '%' : pcts[0] + '%+'
+  })()
+  const pctAdminLabel = (() => {
+    if (ingresosMes > 0) return Math.round(totalAdmin / ingresosMes * 100) + '%'
+    const pcts = configPct.map(c => 100 - c.porcentaje_barbero)
+    if (pcts.length === 0) return '60%'
+    return pcts.every(p => p === pcts[0]) ? pcts[0] + '%' : pcts[0] + '%+'
+  })()
 
   // Citas por día para la gráfica
   const porDia = citasMes.reduce((acc, c) => {
@@ -76,7 +93,7 @@ export default function Reportes() {
     // Hoja 2: Liquidación
     const wsLiq = XLSX.utils.json_to_sheet([
       ['LIQUIDACIÓN DE BARBEROS — ' + mes], [],
-      ['Barbero', 'Citas completadas', 'Total vendido ($)', 'Pago barbero 40% ($)', 'Ganancia admin 60% ($)'],
+      ['Barbero', 'Citas completadas', 'Total vendido ($)', 'Comisión barbero ($)', 'Ganancia dueño ($)'],
       ...comisiones.map(b => [
         b.barbero,
         b.citas_completadas,
@@ -125,26 +142,26 @@ export default function Reportes() {
     const y2 = doc.lastAutoTable.finalY + 10
     doc.setFontSize(13)
     doc.setTextColor(...PRIMARY)
-    doc.text('Liquidación de barberos (40% / 60%)', 14, y2)
+    doc.text(`Liquidación de barberos (barbero ${pctBarberoLabel} / dueño ${pctAdminLabel})`, 14, y2)
     doc.setTextColor(60, 60, 60)
 
     autoTable(doc, {
       startY: y2 + 4,
-      head: [['Barbero', 'Citas', 'Total vendido', 'Pago barbero (40%)', 'Ganancia admin (60%)']],
+      head: [['Barbero', 'Citas', 'Total vendido', 'Comisión barbero', 'Ganancia dueño']],
       body: [
         ...comisiones.map(b => [
           b.barbero,
           b.citas_completadas,
           `$${fmt(b.total_ventas)}`,
-          `$${fmt(b.pago_barbero)}`,
-          `$${fmt(b.ganancia_admin)}`,
+          `$${fmt(b.pago_barbero)} (${b.pct_barbero}%)`,
+          `$${fmt(b.ganancia_admin)} (${100 - b.pct_barbero}%)`,
         ]),
         [
           { content: 'TOTAL', styles: { fontStyle: 'bold' } },
           { content: comisiones.reduce((a,b)=>a+Number(b.citas_completadas||0),0), styles: { fontStyle: 'bold' } },
           { content: `$${fmt(ingresosMes)}`, styles: { fontStyle: 'bold' } },
           { content: `$${fmt(totalBarberos)}`, styles: { fontStyle: 'bold', textColor: [180, 100, 0] } },
-          { content: `$${fmt(totalAdmin)}`,    styles: { fontStyle: 'bold', textColor: [20, 120, 60] } },
+          { content: `$${fmt(totalAdmin)}`, styles: { fontStyle: 'bold', textColor: [22, 101, 52] } },
         ],
       ],
       headStyles: { fillColor: PRIMARY },
@@ -231,18 +248,18 @@ export default function Reportes() {
         <h2 className="text-base font-bold text-slate-700 mb-1">
           Liquidación de barberos
           <span className="ml-2 text-xs font-normal text-slate-400">
-            40% barbero · 60% admin · solo citas completadas
+            {pctBarberoLabel} barbero · {pctAdminLabel} admin · solo citas completadas
           </span>
         </h2>
 
         {/* Totales */}
-        <div className="grid grid-cols-2 gap-4 mb-3">
+        <div className="mb-3 grid grid-cols-1 xl:grid-cols-2 gap-3 max-w-2xl">
           <div className="bg-amber-50 border border-amber-100 rounded-xl p-4 flex items-center gap-3">
             <div className="w-9 h-9 bg-amber-500 rounded-xl flex items-center justify-center shrink-0">
               <Wallet size={18} className="text-white" />
             </div>
             <div>
-              <p className="text-xs text-amber-700 font-medium">A pagar a barberos (40%)</p>
+              <p className="text-xs text-amber-700 font-medium">A pagar a barberos ({pctBarberoLabel})</p>
               <p className="text-lg font-bold text-amber-800">${fmt(totalBarberos)}</p>
             </div>
           </div>
@@ -251,7 +268,7 @@ export default function Reportes() {
               <BadgeDollarSign size={18} className="text-white" />
             </div>
             <div>
-              <p className="text-xs text-green-700 font-medium">Ganancia del dueño (60%)</p>
+              <p className="text-xs text-green-700 font-medium">Ganancia del dueño ({pctAdminLabel})</p>
               <p className="text-lg font-bold text-green-800">${fmt(totalAdmin)}</p>
             </div>
           </div>
@@ -264,8 +281,8 @@ export default function Reportes() {
                 <th className="px-4 py-3 text-left">Barbero</th>
                 <th className="px-4 py-3 text-right">Citas</th>
                 <th className="px-4 py-3 text-right">Total vendido</th>
-                <th className="px-4 py-3 text-right">Pago barbero (40%)</th>
-                <th className="px-4 py-3 text-right">Ganancia admin (60%)</th>
+                <th className="px-4 py-3 text-right">Comisión barbero</th>
+                <th className="px-4 py-3 text-right">Ganancia dueño</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -289,8 +306,14 @@ export default function Reportes() {
                   </td>
                   <td className="px-4 py-3 text-right text-slate-600">{b.citas_completadas}</td>
                   <td className="px-4 py-3 text-right text-slate-700">${fmt(b.total_ventas)}</td>
-                  <td className="px-4 py-3 text-right font-semibold text-amber-600">${fmt(b.pago_barbero)}</td>
-                  <td className="px-4 py-3 text-right font-semibold text-green-600">${fmt(b.ganancia_admin)}</td>
+                  <td className="px-4 py-3 text-right font-semibold text-amber-600">
+                    ${fmt(b.pago_barbero)}
+                    <span className="ml-1 text-xs text-slate-400">({b.pct_barbero}%)</span>
+                  </td>
+                  <td className="px-4 py-3 text-right font-semibold text-green-600">
+                    ${fmt(b.ganancia_admin)}
+                    <span className="ml-1 text-xs text-slate-400">({100 - b.pct_barbero}%)</span>
+                  </td>
                 </tr>
               ))}
               {comisiones.length > 0 && (
