@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useMemo } from 'react'
 import { FileSpreadsheet, FileText, Wallet, BadgeDollarSign, TrendingUp } from 'lucide-react'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
 import * as XLSX from 'xlsx'
@@ -15,6 +15,7 @@ export default function Reportes() {
   const [historico, setHistorico]   = useState([])
   const [configPct, setConfigPct]   = useState([])
   const [mes, setMes]               = useState(new Date().toISOString().slice(0, 7))
+  const [expandedBarbero, setExpandedBarbero] = useState(null)
 
   useEffect(() => {
     async function cargar() {
@@ -42,6 +43,21 @@ export default function Reportes() {
   const ingresosMes   = completadas.reduce((a, c) => a + Number(c.precio_total), 0)
   const totalBarberos = comisiones.reduce((a, b) => a + Number(b.pago_barbero || 0), 0)
   const totalAdmin    = comisiones.reduce((a, b) => a + Number(b.ganancia_admin || 0), 0)
+
+  // Servicios por barbero (solo citas completadas del mes)
+  const serviciosPorBarbero = useMemo(() => {
+    const map = {}
+    for (const c of completadas) {
+      const b = c.barbero_nombre || 'Sin asignar'
+      if (!map[b]) map[b] = {}
+      const svcs = (c.servicio_nombre || 'Sin servicio').split(' + ')
+      for (const sv of svcs) {
+        const t = sv.trim(); if (!t) continue
+        map[b][t] = (map[b][t] || 0) + 1
+      }
+    }
+    return map
+  }, [completadas])
 
   // Porcentajes dinámicos según config o datos reales del mes
   const pctBarberoLabel = (() => {
@@ -293,29 +309,60 @@ export default function Reportes() {
                   </td>
                 </tr>
               )}
-              {comisiones.map(b => (
-                <tr key={b.id} className="hover:bg-slate-50">
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-2">
-                      <div className="w-7 h-7 bg-primary-100 text-primary-600 rounded-full
-                        flex items-center justify-center text-xs font-bold shrink-0">
-                        {b.barbero.charAt(0)}
-                      </div>
-                      <span className="font-medium text-slate-800">{b.barbero}</span>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 text-right text-slate-600">{b.citas_completadas}</td>
-                  <td className="px-4 py-3 text-right text-slate-700">${fmt(b.total_ventas)}</td>
-                  <td className="px-4 py-3 text-right font-semibold text-amber-600">
-                    ${fmt(b.pago_barbero)}
-                    <span className="ml-1 text-xs text-slate-400">({b.pct_barbero}%)</span>
-                  </td>
-                  <td className="px-4 py-3 text-right font-semibold text-green-600">
-                    ${fmt(b.ganancia_admin)}
-                    <span className="ml-1 text-xs text-slate-400">({100 - b.pct_barbero}%)</span>
-                  </td>
-                </tr>
-              ))}
+              {comisiones.map(b => {
+                const svcs    = serviciosPorBarbero[b.barbero] || {}
+                const expanded = expandedBarbero === b.id
+                return (
+                  <React.Fragment key={b.id}>
+                    <tr
+                      className="hover:bg-slate-50 cursor-pointer select-none"
+                      onClick={() => setExpandedBarbero(expanded ? null : b.id)}
+                    >
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          <div className="w-7 h-7 bg-primary-100 text-primary-600 rounded-full flex items-center justify-center text-xs font-bold shrink-0">
+                            {b.barbero.charAt(0)}
+                          </div>
+                          <span className="font-medium text-slate-800">{b.barbero}</span>
+                          <span className="text-slate-300 text-xs ml-1">{expanded ? '▲' : '▼'}</span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-right text-slate-600">{b.citas_completadas}</td>
+                      <td className="px-4 py-3 text-right text-slate-700">${fmt(b.total_ventas)}</td>
+                      <td className="px-4 py-3 text-right font-semibold text-amber-600">
+                        ${fmt(b.pago_barbero)}
+                        <span className="ml-1 text-xs text-slate-400">({b.pct_barbero}%)</span>
+                      </td>
+                      <td className="px-4 py-3 text-right font-semibold text-green-600">
+                        ${fmt(b.ganancia_admin)}
+                        <span className="ml-1 text-xs text-slate-400">({100 - b.pct_barbero}%)</span>
+                      </td>
+                    </tr>
+                    {expanded && (
+                      <tr>
+                        <td colSpan={5} className="px-0 py-0">
+                          <div className="px-12 py-3 bg-slate-50 border-t border-slate-100">
+                            {Object.keys(svcs).length === 0 ? (
+                              <p className="text-xs text-slate-400 italic">Sin servicios registrados este mes</p>
+                            ) : (
+                              <div className="flex flex-wrap gap-2">
+                                {Object.entries(svcs)
+                                  .sort((a, b) => b[1] - a[1])
+                                  .map(([svc, count]) => (
+                                    <span key={svc} className="inline-flex items-center gap-1 bg-white border border-slate-200 rounded-lg px-3 py-1 text-xs font-medium text-slate-700 shadow-sm">
+                                      {svc}
+                                      <span className="bg-primary-100 text-primary-700 rounded-full px-1.5 py-0.5 font-bold text-xs ml-1">×{count}</span>
+                                    </span>
+                                  ))}
+                              </div>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </React.Fragment>
+                )
+              })}
               {comisiones.length > 0 && (
                 <tr className="bg-slate-50 font-bold text-sm">
                   <td className="px-4 py-3 text-slate-700">Total</td>

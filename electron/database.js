@@ -190,6 +190,8 @@ async function initDatabase() {
   try { db.run('ALTER TABLE citas ADD COLUMN _cliente_nombre TEXT') }  catch {}
   try { db.run('ALTER TABLE citas ADD COLUMN _servicio_nombre TEXT') } catch {}
   try { db.run('ALTER TABLE citas ADD COLUMN _cliente_telefono TEXT') } catch {}
+  // Multi-servicio
+  try { db.run('ALTER TABLE citas ADD COLUMN servicios_ids TEXT') } catch {}
 
   // Usuario admin por defecto
   const admin = qGet("SELECT id FROM usuarios WHERE email = 'admin@barberia.com'")
@@ -486,6 +488,29 @@ const servicios = {
 
 // ==================== CITAS ====================
 
+/**
+ * Si una cita tiene múltiples servicios (servicios_ids), construye el nombre combinado.
+ * Prioridad: _servicio_nombre del servidor → nombres locales unificados.
+ */
+function enrichServicioNombre(row) {
+  if (!row.servicios_ids) return row
+  try {
+    const ids = JSON.parse(row.servicios_ids)
+    if (!Array.isArray(ids) || ids.length <= 1) return row
+    // Si el servidor ya mandó el nombre combinado, usarlo
+    if (row._servicio_nombre) {
+      return { ...row, servicio_nombre: row._servicio_nombre }
+    }
+    // Construir desde la tabla local de servicios
+    const nombres = ids.map(id => {
+      const svc = qGet('SELECT nombre FROM servicios WHERE id=? OR server_id=?', [id, id])
+      return svc?.nombre || null
+    }).filter(Boolean)
+    if (nombres.length > 0) return { ...row, servicio_nombre: nombres.join(' + ') }
+  } catch {}
+  return row
+}
+
 // JOIN con triple fallback: ID local → server_id → nombre guardado al hacer pull del servidor
 const CITAS_JOIN = `
   SELECT c.*,
@@ -517,27 +542,33 @@ const CITAS_JOIN = `
 `
 
 const citas = {
-  getAll: () => qAll(CITAS_JOIN + ' ORDER BY c.fecha DESC, c.hora DESC'),
+  getAll: () => qAll(CITAS_JOIN + ' ORDER BY c.fecha DESC, c.hora DESC').map(enrichServicioNombre),
   getById: (id) => qGet('SELECT * FROM citas WHERE id=?', [id]),
-  getByFecha: (fecha) => qAll(
-    CITAS_JOIN + ' WHERE c.fecha = ? ORDER BY c.hora',
-    [fecha]
-  ),
+  getByFecha: (fecha) => qAll(CITAS_JOIN + ' WHERE c.fecha = ? ORDER BY c.hora', [fecha]).map(enrichServicioNombre),
   create: (d) => {
+    // servicios_ids puede venir como array → serializar a JSON para SQLite
+    const sidsJson = Array.isArray(d.servicios_ids) && d.servicios_ids.length
+      ? JSON.stringify(d.servicios_ids)
+      : null
+    const servicioId = d.servicio_id || (Array.isArray(d.servicios_ids) ? d.servicios_ids[0] : null) || null
     qRun(
-      'INSERT INTO citas (cliente_id,barbero_id,servicio_id,fecha,hora,estado,notas,precio_total,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?)',
-      [d.cliente_id, d.barbero_id, d.servicio_id, d.fecha, d.hora, d.estado || 'pendiente', d.notas || null, d.precio_total || 0, now(), now()]
+      'INSERT INTO citas (cliente_id,barbero_id,servicio_id,servicios_ids,fecha,hora,estado,notas,precio_total,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)',
+      [d.cliente_id, d.barbero_id, servicioId, sidsJson, d.fecha, d.hora, d.estado || 'pendiente', d.notas || null, d.precio_total || 0, now(), now()]
     )
     const id = lastId()
-    encolarSync('citas', 'create', { ...d, local_id: id }, id)
+    encolarSync('citas', 'create', { ...d, servicio_id: servicioId, servicios_ids: d.servicios_ids || null, local_id: id }, id)
     return id
   },
   update: (id, d) => {
+    const sidsJson = Array.isArray(d.servicios_ids) && d.servicios_ids.length
+      ? JSON.stringify(d.servicios_ids)
+      : null
+    const servicioId = d.servicio_id || (Array.isArray(d.servicios_ids) ? d.servicios_ids[0] : null) || null
     qRun(
-      'UPDATE citas SET cliente_id=?,barbero_id=?,servicio_id=?,fecha=?,hora=?,estado=?,notas=?,precio_total=?,updated_at=?,sync_status=? WHERE id=?',
-      [d.cliente_id, d.barbero_id, d.servicio_id, d.fecha, d.hora, d.estado, d.notas || null, d.precio_total || 0, now(), 'pending', id]
+      'UPDATE citas SET cliente_id=?,barbero_id=?,servicio_id=?,servicios_ids=?,fecha=?,hora=?,estado=?,notas=?,precio_total=?,updated_at=?,sync_status=? WHERE id=?',
+      [d.cliente_id, d.barbero_id, servicioId, sidsJson, d.fecha, d.hora, d.estado, d.notas || null, d.precio_total || 0, now(), 'pending', id]
     )
-    encolarSync('citas', 'update', { ...d, local_id: id }, id)
+    encolarSync('citas', 'update', { ...d, servicio_id: servicioId, servicios_ids: d.servicios_ids || null, local_id: id }, id)
   },
   delete: (id) => {
     const c = qGet('SELECT * FROM citas WHERE id=?', [id])
@@ -571,15 +602,20 @@ const citas = {
       const servicioNombre = d.servicio_nombre || null
       const clienteTel     = d.cliente_telefono || null
 
+      // servicios_ids viene como array desde el servidor → guardar como JSON text
+      const sidsJson = Array.isArray(d.servicios_ids) && d.servicios_ids.length
+        ? JSON.stringify(d.servicios_ids)
+        : null
+
       const existing = qGet('SELECT id FROM citas WHERE server_id=?', [d.id])
       if (existing) {
         qRun(
           `UPDATE citas SET
-            cliente_id=?,barbero_id=?,servicio_id=?,fecha=?,hora=?,estado=?,notas=?,precio_total=?,
+            cliente_id=?,barbero_id=?,servicio_id=?,servicios_ids=?,fecha=?,hora=?,estado=?,notas=?,precio_total=?,
             updated_at=?,sync_status=?,
             _barbero_nombre=?,_cliente_nombre=?,_servicio_nombre=?,_cliente_telefono=?
           WHERE id=?`,
-          [clienteId, barberoId, servicioId, d.fecha, d.hora||'', d.estado, d.notas||null, d.precio_total||0,
+          [clienteId, barberoId, servicioId, sidsJson, d.fecha, d.hora||'', d.estado, d.notas||null, d.precio_total||0,
            d.updated_at||now(), 'synced',
            barberoNombre, clienteNombre, servicioNombre, clienteTel,
            existing.id]
@@ -587,11 +623,11 @@ const citas = {
       } else {
         qRun(
           `INSERT INTO citas
-            (cliente_id,barbero_id,servicio_id,fecha,hora,estado,notas,precio_total,
+            (cliente_id,barbero_id,servicio_id,servicios_ids,fecha,hora,estado,notas,precio_total,
              server_id,sync_status,created_at,updated_at,
              _barbero_nombre,_cliente_nombre,_servicio_nombre,_cliente_telefono)
-           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
-          [clienteId, barberoId, servicioId, d.fecha, d.hora||'', d.estado, d.notas||null, d.precio_total||0,
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+          [clienteId, barberoId, servicioId, sidsJson, d.fecha, d.hora||'', d.estado, d.notas||null, d.precio_total||0,
            d.id, 'synced', d.created_at||now(), d.updated_at||now(),
            barberoNombre, clienteNombre, servicioNombre, clienteTel]
         )

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useMemo } from 'react'
 import { Calendar, Users, DollarSign, UserCheck, Clock, TrendingUp, Wallet, BadgeDollarSign, TrendingDown } from 'lucide-react'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend, LineChart, Line, CartesianGrid } from 'recharts'
 
@@ -38,17 +38,20 @@ export default function Dashboard() {
   const [comisiones, setComisiones]   = useState([])
   const [historico, setHistorico]     = useState([])
   const [configPct, setConfigPct]     = useState([])   // [{barbero_id, porcentaje_barbero}]
+  const [citas, setCitas]             = useState([])
+  const [expandedBarbero, setExpandedBarbero] = useState(null)
   const [loading, setLoading]         = useState(true)
 
   useEffect(() => {
     async function cargar() {
-      const [s, d, t, c, h, cfg] = await Promise.all([
+      const [s, d, t, c, h, cfg, allCitas] = await Promise.all([
         window.api.dashboard.getStats(),
         window.api.dashboard.getCitasPorDia(),
         window.api.dashboard.getTopServicios(),
         window.api.dashboard.getComisionesMes(),
         window.api.dashboard.getBalanceHistorico(6),
         window.api.comisiones.getConfig(),
+        window.api.citas.getAll(),
       ])
       setStats(s)
       setPorDia(d.map(r => ({ ...r, fecha: r.fecha.slice(5) })))
@@ -56,10 +59,30 @@ export default function Dashboard() {
       setComisiones(c)
       setHistorico(h.map(r => ({ ...r, mes: r.mes.slice(5) }))) // solo MM
       setConfigPct(cfg)
+      setCitas(allCitas)
       setLoading(false)
     }
     cargar()
   }, [])
+
+  // ── hooks siempre antes del early return ──
+  const mesKey = new Date().toISOString().slice(0, 7)
+
+  // Servicios realizados por cada barbero este mes (solo completadas)
+  const serviciosPorBarbero = useMemo(() => {
+    const map = {}
+    for (const c of citas) {
+      if (!c.fecha?.startsWith(mesKey) || c.estado !== 'completada') continue
+      const b = c.barbero_nombre || 'Sin asignar'
+      if (!map[b]) map[b] = {}
+      const svcs = (c.servicio_nombre || 'Sin servicio').split(' + ')
+      for (const sv of svcs) {
+        const t = sv.trim(); if (!t) continue
+        map[b][t] = (map[b][t] || 0) + 1
+      }
+    }
+    return map
+  }, [citas, mesKey])
 
   if (loading) return (
     <div className="flex items-center justify-center h-64 text-slate-400">Cargando dashboard...</div>
@@ -152,7 +175,7 @@ export default function Dashboard() {
               <tr>
                 <th className="px-4 py-3 text-left">Barbero</th>
                 <th className="px-4 py-3 text-right">Citas</th>
-                <th className="px-4 py-3 text-right">Total vendido</th>
+                <th className="px-4 py-3 text-right">Total Servicios</th>
                 <th className="px-4 py-3 text-right">Comisión barbero</th>
                 <th className="px-4 py-3 text-right">Ganancia dueño</th>
               </tr>
@@ -165,28 +188,60 @@ export default function Dashboard() {
                   </td>
                 </tr>
               )}
-              {comisiones.map(b => (
-                <tr key={b.id} className="hover:bg-slate-50 transition-colors">
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-2">
-                      <div className="w-7 h-7 bg-primary-100 text-primary-600 rounded-full flex items-center justify-center text-xs font-bold shrink-0">
-                        {b.barbero.charAt(0)}
-                      </div>
-                      <span className="font-medium text-slate-800">{b.barbero}</span>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 text-right text-slate-600">{b.citas_completadas}</td>
-                  <td className="px-4 py-3 text-right text-slate-700">${fmt(b.total_ventas)}</td>
-                  <td className="px-4 py-3 text-right">
-                    <span className="font-semibold text-amber-600">${fmt(b.pago_barbero)}</span>
-                    <span className="ml-1 text-xs text-slate-400">({b.pct_barbero}%)</span>
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    <span className="font-semibold text-green-600">${fmt(b.ganancia_admin)}</span>
-                    <span className="ml-1 text-xs text-slate-400">({100 - b.pct_barbero}%)</span>
-                  </td>
-                </tr>
-              ))}
+              {comisiones.map(b => {
+                const svcs    = serviciosPorBarbero[b.barbero] || {}
+                const expanded = expandedBarbero === b.id
+                return (
+                  <React.Fragment key={b.id}>
+                    <tr
+                      className="hover:bg-slate-50 transition-colors cursor-pointer select-none"
+                      onClick={() => setExpandedBarbero(expanded ? null : b.id)}
+                    >
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          <div className="w-7 h-7 bg-primary-100 text-primary-600 rounded-full flex items-center justify-center text-xs font-bold shrink-0">
+                            {b.barbero.charAt(0)}
+                          </div>
+                          <span className="font-medium text-slate-800">{b.barbero}</span>
+                          <span className="text-slate-300 text-xs ml-1">{expanded ? '▲' : '▼'}</span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-right text-slate-600">{b.citas_completadas}</td>
+                      <td className="px-4 py-3 text-right text-slate-700">${fmt(b.total_ventas)}</td>
+                      <td className="px-4 py-3 text-right">
+                        <span className="font-semibold text-amber-600">${fmt(b.pago_barbero)}</span>
+                        <span className="ml-1 text-xs text-slate-400">({b.pct_barbero}%)</span>
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <span className="font-semibold text-green-600">${fmt(b.ganancia_admin)}</span>
+                        <span className="ml-1 text-xs text-slate-400">({100 - b.pct_barbero}%)</span>
+                      </td>
+                    </tr>
+                    {expanded && (
+                      <tr>
+                        <td colSpan={5} className="px-0 py-0">
+                          <div className="px-12 py-3 bg-slate-50 border-t border-slate-100">
+                            {Object.keys(svcs).length === 0 ? (
+                              <p className="text-xs text-slate-400 italic">Sin servicios registrados este mes</p>
+                            ) : (
+                              <div className="flex flex-wrap gap-2">
+                                {Object.entries(svcs)
+                                  .sort((a, b) => b[1] - a[1])
+                                  .map(([svc, count]) => (
+                                    <span key={svc} className="inline-flex items-center gap-1 bg-white border border-slate-200 rounded-lg px-3 py-1 text-xs font-medium text-slate-700 shadow-sm">
+                                      {svc}
+                                      <span className="bg-primary-100 text-primary-700 rounded-full px-1.5 py-0.5 font-bold text-xs ml-1">×{count}</span>
+                                    </span>
+                                  ))}
+                              </div>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </React.Fragment>
+                )
+              })}
               {comisiones.length > 0 && (
                 <tr className="bg-slate-50 font-semibold">
                   <td className="px-4 py-3 text-slate-700">Total</td>
