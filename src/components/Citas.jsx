@@ -1,28 +1,30 @@
 import React, { useEffect, useState } from 'react'
-import { Plus, Pencil, Trash2, X, Calendar } from 'lucide-react'
+import { Plus, Pencil, Trash2, X, Calendar, Search } from 'lucide-react'
 import { useSync } from '../context/SyncContext'
 
 const EMPTY = { cliente_id: '', barbero_id: '', servicio_id: '', fecha: '', hora: '', estado: 'pendiente', notas: '', precio_total: '' }
 const ESTADOS = ['pendiente', 'confirmada', 'en proceso', 'completada', 'cancelada']
 const ESTADO_COLORS = {
-  pendiente:   'bg-yellow-100 text-yellow-700',
-  confirmada:  'bg-blue-100 text-blue-700',
-  'en proceso':'bg-indigo-100 text-indigo-700',
-  completada:  'bg-green-100 text-green-700',
-  cancelada:   'bg-red-100 text-red-700',
+  pendiente:    'bg-yellow-100 text-yellow-700',
+  confirmada:   'bg-blue-100 text-blue-700',
+  'en proceso': 'bg-indigo-100 text-indigo-700',
+  completada:   'bg-green-100 text-green-700',
+  cancelada:    'bg-red-100 text-red-700',
 }
 
 export default function Citas() {
   const { refreshTick } = useSync()
-  const [citas, setCitas]         = useState([])
-  const [clientes, setClientes]   = useState([])
-  const [barberos, setBarberos]   = useState([])
-  const [servicios, setServicios] = useState([])
+  const [citas, setCitas]           = useState([])
+  const [clientes, setClientes]     = useState([])
+  const [barberos, setBarberos]     = useState([])
+  const [servicios, setServicios]   = useState([])
   const [filtroFecha, setFiltroFecha] = useState('')
-  const [modal, setModal]         = useState(false)
-  const [form, setForm]           = useState(EMPTY)
-  const [editId, setEditId]       = useState(null)
-  const [loading, setLoading]     = useState(false)
+  const [busqueda, setBusqueda]       = useState('')
+  const [modal, setModal]           = useState(false)
+  const [form, setForm]             = useState(EMPTY)
+  const [editId, setEditId]         = useState(null)
+  const [loading, setLoading]       = useState(false)
+  const [seleccionados, setSelec]   = useState(new Set())
 
   async function cargar() {
     const [c, cl, b, s] = await Promise.all([
@@ -32,18 +34,51 @@ export default function Citas() {
       window.api.servicios.getAll(),
     ])
     setCitas(c); setClientes(cl); setBarberos(b); setServicios(s)
+    setSelec(new Set())
   }
   useEffect(() => { cargar() }, [refreshTick])
 
-  // Auto-rellena precio al seleccionar servicio
+  const filtradas = citas.filter(c => {
+    if (filtroFecha && c.fecha !== filtroFecha) return false
+    if (busqueda) {
+      const q = busqueda.toLowerCase()
+      return (
+        (c.cliente_nombre  || '').toLowerCase().includes(q) ||
+        (c.barbero_nombre  || '').toLowerCase().includes(q) ||
+        (c.servicio_nombre || '').toLowerCase().includes(q) ||
+        String(c.precio_total || '').includes(q)
+      )
+    }
+    return true
+  })
+
+  // ── Selección ──
+  const todosSeleccionados = filtradas.length > 0 && filtradas.every(c => seleccionados.has(c.id))
+
+  function toggleTodos() {
+    todosSeleccionados ? setSelec(new Set()) : setSelec(new Set(filtradas.map(c => c.id)))
+  }
+
+  function toggleUno(id) {
+    setSelec(prev => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+  }
+
+  async function eliminarSeleccionados() {
+    const ids = [...seleccionados]
+    if (!await window.api.dialog.confirm(`¿Eliminar ${ids.length} cita(s) seleccionada(s)?`)) return
+    for (const id of ids) await window.api.citas.delete(id)
+    await cargar()
+  }
+
+  // ── CRUD ──
   function onServicioChange(id) {
     const svc = servicios.find(s => s.id === parseInt(id))
     setForm(f => ({ ...f, servicio_id: id, precio_total: svc ? String(svc.precio) : '' }))
   }
-
-  const filtradas = filtroFecha
-    ? citas.filter(c => c.fecha === filtroFecha)
-    : citas
 
   function abrirCrear() {
     const hoy = new Date().toISOString().split('T')[0]
@@ -63,9 +98,9 @@ export default function Citas() {
     setLoading(true)
     const payload = {
       ...form,
-      cliente_id:  parseInt(form.cliente_id),
-      barbero_id:  parseInt(form.barbero_id),
-      servicio_id: parseInt(form.servicio_id),
+      cliente_id:   parseInt(form.cliente_id),
+      barbero_id:   parseInt(form.barbero_id),
+      servicio_id:  parseInt(form.servicio_id),
       precio_total: parseFloat(form.precio_total) || 0,
     }
     if (editId) await window.api.citas.update(editId, payload)
@@ -91,22 +126,66 @@ export default function Citas() {
         </button>
       </div>
 
-      {/* Filtro fecha */}
-      <div className="flex items-center gap-3">
-        <Calendar size={16} className="text-slate-400" />
-        <input type="date" value={filtroFecha} onChange={e => setFiltroFecha(e.target.value)}
-          className="border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400" />
-        {filtroFecha && (
-          <button onClick={() => setFiltroFecha('')} className="text-slate-400 hover:text-slate-600 text-xs">Limpiar</button>
-        )}
-        <span className="text-slate-400 text-sm">{filtradas.length} cita(s)</span>
+      {/* Filtros */}
+      <div className="flex flex-wrap items-center gap-3">
+        {/* Fecha */}
+        <div className="flex items-center gap-2">
+          <Calendar size={15} className="text-slate-400" />
+          <input type="date" value={filtroFecha} onChange={e => setFiltroFecha(e.target.value)}
+            className="border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400" />
+          {filtroFecha && (
+            <button onClick={() => setFiltroFecha('')} className="text-slate-400 hover:text-slate-600 text-xs">✕</button>
+          )}
+        </div>
+
+        {/* Búsqueda texto */}
+        <div className="relative flex-1 min-w-[220px]">
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <input
+            type="text"
+            value={busqueda}
+            onChange={e => setBusqueda(e.target.value)}
+            placeholder="Buscar por cliente, barbero, servicio o precio..."
+            className="w-full pl-8 pr-3 py-1.5 text-sm border border-slate-200 rounded-lg
+              focus:outline-none focus:ring-2 focus:ring-primary-400"
+          />
+          {busqueda && (
+            <button onClick={() => setBusqueda('')}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-300 hover:text-slate-500">
+              <X size={13} />
+            </button>
+          )}
+        </div>
+
+        <span className="text-slate-400 text-sm whitespace-nowrap">{filtradas.length} cita(s)</span>
       </div>
+
+      {/* Barra de selección */}
+      {seleccionados.size > 0 && (
+        <div className="flex items-center justify-between bg-red-50 border border-red-200 rounded-lg px-4 py-2.5">
+          <span className="text-sm font-medium text-red-700">
+            {seleccionados.size} cita(s) seleccionada(s)
+          </span>
+          <div className="flex items-center gap-3">
+            <button onClick={() => setSelec(new Set())}
+              className="text-xs text-slate-500 hover:text-slate-700">Cancelar</button>
+            <button onClick={eliminarSeleccionados}
+              className="flex items-center gap-1.5 bg-red-500 hover:bg-red-600 text-white text-xs font-medium px-3 py-1.5 rounded-lg transition">
+              <Trash2 size={13} /> Eliminar seleccionadas
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Tabla */}
       <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
         <table className="w-full text-sm">
           <thead className="bg-slate-50 text-slate-500 text-xs uppercase">
             <tr>
+              <th className="px-4 py-3 text-left w-10">
+                <input type="checkbox" checked={todosSeleccionados} onChange={toggleTodos}
+                  className="accent-primary-500 w-4 h-4 cursor-pointer" />
+              </th>
               <th className="px-4 py-3 text-left">Fecha / Hora</th>
               <th className="px-4 py-3 text-left">Cliente</th>
               <th className="px-4 py-3 text-left">Barbero</th>
@@ -118,31 +197,38 @@ export default function Citas() {
           </thead>
           <tbody className="divide-y divide-slate-100">
             {filtradas.length === 0 && (
-              <tr><td colSpan={7} className="text-center text-slate-400 py-10">No hay citas</td></tr>
+              <tr><td colSpan={8} className="text-center text-slate-400 py-10">No hay citas</td></tr>
             )}
-            {filtradas.map(c => (
-              <tr key={c.id} className="hover:bg-slate-50 transition-colors">
-                <td className="px-4 py-3">
-                  <p className="font-medium text-slate-800">{c.fecha}</p>
-                  <p className="text-slate-400 text-xs">{c.hora}</p>
-                </td>
-                <td className="px-4 py-3 text-slate-600">{c.cliente_nombre || '—'}</td>
-                <td className="px-4 py-3 text-slate-600">{c.barbero_nombre || '—'}</td>
-                <td className="px-4 py-3 text-slate-600">{c.servicio_nombre || '—'}</td>
-                <td className="px-4 py-3 font-medium text-slate-800">${Number(c.precio_total).toLocaleString()}</td>
-                <td className="px-4 py-3">
-                  <span className={`text-xs font-medium px-2 py-1 rounded-full ${ESTADO_COLORS[c.estado] || ''}`}>
-                    {c.estado}
-                  </span>
-                </td>
-                <td className="px-4 py-3">
-                  <div className="flex justify-end gap-2">
-                    <button onClick={() => abrirEditar(c)} className="text-slate-400 hover:text-blue-600 transition-colors"><Pencil size={15} /></button>
-                    <button onClick={() => eliminar(c.id)} className="text-slate-400 hover:text-red-500 transition-colors"><Trash2 size={15} /></button>
-                  </div>
-                </td>
-              </tr>
-            ))}
+            {filtradas.map(c => {
+              const sel = seleccionados.has(c.id)
+              return (
+                <tr key={c.id} className={`hover:bg-slate-50 transition-colors ${sel ? 'bg-primary-50' : ''}`}>
+                  <td className="px-4 py-3">
+                    <input type="checkbox" checked={sel} onChange={() => toggleUno(c.id)}
+                      className="accent-primary-500 w-4 h-4 cursor-pointer" />
+                  </td>
+                  <td className="px-4 py-3">
+                    <p className="font-medium text-slate-800">{c.fecha}</p>
+                    <p className="text-slate-400 text-xs">{c.hora}</p>
+                  </td>
+                  <td className="px-4 py-3 text-slate-600">{c.cliente_nombre || '—'}</td>
+                  <td className="px-4 py-3 text-slate-600">{c.barbero_nombre || '—'}</td>
+                  <td className="px-4 py-3 text-slate-600">{c.servicio_nombre || '—'}</td>
+                  <td className="px-4 py-3 font-medium text-slate-800">${Number(c.precio_total).toLocaleString()}</td>
+                  <td className="px-4 py-3">
+                    <span className={`text-xs font-medium px-2 py-1 rounded-full ${ESTADO_COLORS[c.estado] || ''}`}>
+                      {c.estado}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex justify-end gap-2">
+                      <button onClick={() => abrirEditar(c)} className="text-slate-400 hover:text-blue-600 transition-colors"><Pencil size={15} /></button>
+                      <button onClick={() => eliminar(c.id)} className="text-slate-400 hover:text-red-500 transition-colors"><Trash2 size={15} /></button>
+                    </div>
+                  </td>
+                </tr>
+              )
+            })}
           </tbody>
         </table>
       </div>
@@ -171,7 +257,7 @@ export default function Citas() {
               {[
                 { label: 'Cliente', key: 'cliente_id', opts: clientes },
                 { label: 'Barbero *', key: 'barbero_id', opts: barberos },
-              ].map(({ label, key, opts, req }) => (
+              ].map(({ label, key, opts }) => (
                 <div key={key}>
                   <label className="block text-sm font-medium text-slate-700 mb-1">{label}</label>
                   <select value={form[key]} onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))}
@@ -192,7 +278,8 @@ export default function Citas() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Precio total</label>
-                  <input type="number" min="0" step="0.01" value={form.precio_total} onChange={e => setForm(f => ({ ...f, precio_total: e.target.value }))}
+                  <input type="number" min="0" step="0.01" value={form.precio_total}
+                    onChange={e => setForm(f => ({ ...f, precio_total: e.target.value }))}
                     className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400" />
                 </div>
                 <div>

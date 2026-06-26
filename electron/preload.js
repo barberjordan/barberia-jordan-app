@@ -92,7 +92,10 @@ contextBridge.exposeInMainWorld('api', {
     onDisponible:  (cb) => ipcRenderer.on('update:disponible', (_e, data) => cb(data)),
     onProgreso:    (cb) => ipcRenderer.on('update:progreso',   (_e, data) => cb(data)),
     onDescargada:  (cb) => ipcRenderer.on('update:descargada', (_e, data) => cb(data)),
+    onAlDia:       (cb) => ipcRenderer.on('update:al-dia', () => cb()),
+    onError:       (cb) => ipcRenderer.on('update:error', (_e, data) => cb(data)),
     instalar:      ()   => ipcRenderer.invoke('update:instalar'),
     getEstado:     ()   => ipcRenderer.invoke('update:estado'),
+    verificar:     ()   => ipcRenderer.invoke('update:verificar'),
   },
 })

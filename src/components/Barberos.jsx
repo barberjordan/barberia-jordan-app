@@ -1,21 +1,45 @@
 import React, { useEffect, useState } from 'react'
-import { Plus, Pencil, Trash2, UserCheck, X, Check } from 'lucide-react'
+import { Plus, Pencil, Trash2, X } from 'lucide-react'
 
 const EMPTY = { nombre: '', telefono: '', email: '', especialidad: '', activo: 1 }
 
 export default function Barberos() {
-  const [data, setData]       = useState([])
-  const [modal, setModal]     = useState(false)
-  const [form, setForm]       = useState(EMPTY)
-  const [editId, setEditId]   = useState(null)
-  const [loading, setLoading] = useState(false)
+  const [data, setData]           = useState([])
+  const [modal, setModal]         = useState(false)
+  const [form, setForm]           = useState(EMPTY)
+  const [editId, setEditId]       = useState(null)
+  const [loading, setLoading]     = useState(false)
+  const [seleccionados, setSelec] = useState(new Set())
 
   async function cargar() {
     setData(await window.api.barberos.getAll())
+    setSelec(new Set())
   }
-
   useEffect(() => { cargar() }, [])
 
+  // ── Selección ──
+  const todosSeleccionados = data.length > 0 && data.every(b => seleccionados.has(b.id))
+
+  function toggleTodos() {
+    todosSeleccionados ? setSelec(new Set()) : setSelec(new Set(data.map(b => b.id)))
+  }
+
+  function toggleUno(id) {
+    setSelec(prev => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+  }
+
+  async function eliminarSeleccionados() {
+    const ids = [...seleccionados]
+    if (!await window.api.dialog.confirm(`¿Eliminar ${ids.length} barbero(s) seleccionado(s)?`)) return
+    for (const id of ids) await window.api.barberos.delete(id)
+    await cargar()
+  }
+
+  // ── CRUD ──
   function abrirCrear() { setForm(EMPTY); setEditId(null); setModal(true) }
   function abrirEditar(b) { setForm({ ...b }); setEditId(b.id); setModal(true) }
 
@@ -39,20 +63,38 @@ export default function Barberos() {
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-bold text-slate-800">Barberos</h1>
-        <button
-          onClick={abrirCrear}
-          className="flex items-center gap-2 bg-primary-500 hover:bg-primary-600 text-white
-            text-sm font-medium px-4 py-2 rounded-lg transition"
-        >
+        <button onClick={abrirCrear}
+          className="flex items-center gap-2 bg-primary-500 hover:bg-primary-600 text-white text-sm font-medium px-4 py-2 rounded-lg transition">
           <Plus size={16} /> Nuevo barbero
         </button>
       </div>
+
+      {/* Barra de selección */}
+      {seleccionados.size > 0 && (
+        <div className="flex items-center justify-between bg-red-50 border border-red-200 rounded-lg px-4 py-2.5">
+          <span className="text-sm font-medium text-red-700">
+            {seleccionados.size} barbero(s) seleccionado(s)
+          </span>
+          <div className="flex items-center gap-3">
+            <button onClick={() => setSelec(new Set())}
+              className="text-xs text-slate-500 hover:text-slate-700">Cancelar</button>
+            <button onClick={eliminarSeleccionados}
+              className="flex items-center gap-1.5 bg-red-500 hover:bg-red-600 text-white text-xs font-medium px-3 py-1.5 rounded-lg transition">
+              <Trash2 size={13} /> Eliminar seleccionados
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Tabla */}
       <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
         <table className="w-full text-sm">
           <thead className="bg-slate-50 text-slate-500 text-xs uppercase">
             <tr>
+              <th className="px-4 py-3 text-left w-10">
+                <input type="checkbox" checked={todosSeleccionados} onChange={toggleTodos}
+                  className="accent-primary-500 w-4 h-4 cursor-pointer" />
+              </th>
               <th className="px-4 py-3 text-left">Nombre</th>
               <th className="px-4 py-3 text-left">Especialidad</th>
               <th className="px-4 py-3 text-left">Teléfono</th>
@@ -63,34 +105,41 @@ export default function Barberos() {
           </thead>
           <tbody className="divide-y divide-slate-100">
             {data.length === 0 && (
-              <tr><td colSpan={6} className="text-center text-slate-400 py-10">No hay barberos registrados</td></tr>
+              <tr><td colSpan={7} className="text-center text-slate-400 py-10">No hay barberos registrados</td></tr>
             )}
-            {data.map(b => (
-              <tr key={b.id} className="hover:bg-slate-50 transition-colors">
-                <td className="px-4 py-3 font-medium text-slate-800">
-                  <div className="flex items-center gap-2">
-                    <div className="w-7 h-7 bg-primary-100 text-primary-600 rounded-full flex items-center justify-center text-xs font-bold">
-                      {b.nombre.charAt(0)}
+            {data.map(b => {
+              const sel = seleccionados.has(b.id)
+              return (
+                <tr key={b.id} className={`hover:bg-slate-50 transition-colors ${sel ? 'bg-primary-50' : ''}`}>
+                  <td className="px-4 py-3">
+                    <input type="checkbox" checked={sel} onChange={() => toggleUno(b.id)}
+                      className="accent-primary-500 w-4 h-4 cursor-pointer" />
+                  </td>
+                  <td className="px-4 py-3 font-medium text-slate-800">
+                    <div className="flex items-center gap-2">
+                      <div className="w-7 h-7 bg-primary-100 text-primary-600 rounded-full flex items-center justify-center text-xs font-bold">
+                        {b.nombre.charAt(0)}
+                      </div>
+                      {b.nombre}
                     </div>
-                    {b.nombre}
-                  </div>
-                </td>
-                <td className="px-4 py-3 text-slate-500">{b.especialidad || '—'}</td>
-                <td className="px-4 py-3 text-slate-500">{b.telefono || '—'}</td>
-                <td className="px-4 py-3 text-slate-500">{b.email || '—'}</td>
-                <td className="px-4 py-3">
-                  <span className={`text-xs font-medium px-2 py-1 rounded-full ${b.activo ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'}`}>
-                    {b.activo ? 'Activo' : 'Inactivo'}
-                  </span>
-                </td>
-                <td className="px-4 py-3">
-                  <div className="flex justify-end gap-2">
-                    <button onClick={() => abrirEditar(b)} className="text-slate-400 hover:text-blue-600 transition-colors"><Pencil size={15} /></button>
-                    <button onClick={() => eliminar(b.id)} className="text-slate-400 hover:text-red-500 transition-colors"><Trash2 size={15} /></button>
-                  </div>
-                </td>
-              </tr>
-            ))}
+                  </td>
+                  <td className="px-4 py-3 text-slate-500">{b.especialidad || '—'}</td>
+                  <td className="px-4 py-3 text-slate-500">{b.telefono || '—'}</td>
+                  <td className="px-4 py-3 text-slate-500">{b.email || '—'}</td>
+                  <td className="px-4 py-3">
+                    <span className={`text-xs font-medium px-2 py-1 rounded-full ${b.activo ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'}`}>
+                      {b.activo ? 'Activo' : 'Inactivo'}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex justify-end gap-2">
+                      <button onClick={() => abrirEditar(b)} className="text-slate-400 hover:text-blue-600 transition-colors"><Pencil size={15} /></button>
+                      <button onClick={() => eliminar(b.id)} className="text-slate-400 hover:text-red-500 transition-colors"><Trash2 size={15} /></button>
+                    </div>
+                  </td>
+                </tr>
+              )
+            })}
           </tbody>
         </table>
       </div>

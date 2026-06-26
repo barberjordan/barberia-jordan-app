@@ -4,15 +4,17 @@ import { Plus, Pencil, Trash2, Search, X } from 'lucide-react'
 const EMPTY = { nombre: '', telefono: '', email: '', notas: '' }
 
 export default function Clientes() {
-  const [data, setData]       = useState([])
-  const [filtro, setFiltro]   = useState('')
-  const [modal, setModal]     = useState(false)
-  const [form, setForm]       = useState(EMPTY)
-  const [editId, setEditId]   = useState(null)
-  const [loading, setLoading] = useState(false)
+  const [data, setData]             = useState([])
+  const [filtro, setFiltro]         = useState('')
+  const [modal, setModal]           = useState(false)
+  const [form, setForm]             = useState(EMPTY)
+  const [editId, setEditId]         = useState(null)
+  const [loading, setLoading]       = useState(false)
+  const [seleccionados, setSelec]   = useState(new Set())
 
   async function cargar() {
     setData(await window.api.clientes.getAll())
+    setSelec(new Set())
   }
   useEffect(() => { cargar() }, [])
 
@@ -22,6 +24,33 @@ export default function Clientes() {
     (c.email || '').toLowerCase().includes(filtro.toLowerCase())
   )
 
+  // ── Selección ──
+  const todosSeleccionados = filtrados.length > 0 && filtrados.every(c => seleccionados.has(c.id))
+
+  function toggleTodos() {
+    if (todosSeleccionados) {
+      setSelec(new Set())
+    } else {
+      setSelec(new Set(filtrados.map(c => c.id)))
+    }
+  }
+
+  function toggleUno(id) {
+    setSelec(prev => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+  }
+
+  async function eliminarSeleccionados() {
+    const ids = [...seleccionados]
+    if (!await window.api.dialog.confirm(`¿Eliminar ${ids.length} cliente(s) seleccionado(s)?`)) return
+    for (const id of ids) await window.api.clientes.delete(id)
+    await cargar()
+  }
+
+  // ── CRUD ──
   function abrirCrear() { setForm(EMPTY); setEditId(null); setModal(true) }
   function abrirEditar(c) { setForm({ ...c }); setEditId(c.id); setModal(true) }
 
@@ -44,7 +73,9 @@ export default function Clientes() {
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold text-slate-800">Clientes <span className="text-slate-400 font-normal text-base">({data.length})</span></h1>
+        <h1 className="text-xl font-bold text-slate-800">
+          Clientes <span className="text-slate-400 font-normal text-base">({data.length})</span>
+        </h1>
         <button onClick={abrirCrear}
           className="flex items-center gap-2 bg-primary-500 hover:bg-primary-600 text-white text-sm font-medium px-4 py-2 rounded-lg transition">
           <Plus size={16} /> Nuevo cliente
@@ -64,11 +95,32 @@ export default function Clientes() {
         />
       </div>
 
+      {/* Barra de selección */}
+      {seleccionados.size > 0 && (
+        <div className="flex items-center justify-between bg-red-50 border border-red-200 rounded-lg px-4 py-2.5">
+          <span className="text-sm font-medium text-red-700">
+            {seleccionados.size} cliente(s) seleccionado(s)
+          </span>
+          <div className="flex items-center gap-3">
+            <button onClick={() => setSelec(new Set())}
+              className="text-xs text-slate-500 hover:text-slate-700">Cancelar</button>
+            <button onClick={eliminarSeleccionados}
+              className="flex items-center gap-1.5 bg-red-500 hover:bg-red-600 text-white text-xs font-medium px-3 py-1.5 rounded-lg transition">
+              <Trash2 size={13} /> Eliminar seleccionados
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Tabla */}
       <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
         <table className="w-full text-sm">
           <thead className="bg-slate-50 text-slate-500 text-xs uppercase">
             <tr>
+              <th className="px-4 py-3 text-left w-10">
+                <input type="checkbox" checked={todosSeleccionados} onChange={toggleTodos}
+                  className="accent-primary-500 w-4 h-4 cursor-pointer" />
+              </th>
               <th className="px-4 py-3 text-left">Nombre</th>
               <th className="px-4 py-3 text-left">Teléfono</th>
               <th className="px-4 py-3 text-left">Email</th>
@@ -78,29 +130,36 @@ export default function Clientes() {
           </thead>
           <tbody className="divide-y divide-slate-100">
             {filtrados.length === 0 && (
-              <tr><td colSpan={5} className="text-center text-slate-400 py-10">No hay clientes registrados</td></tr>
+              <tr><td colSpan={6} className="text-center text-slate-400 py-10">No hay clientes registrados</td></tr>
             )}
-            {filtrados.map(c => (
-              <tr key={c.id} className="hover:bg-slate-50 transition-colors">
-                <td className="px-4 py-3 font-medium text-slate-800">
-                  <div className="flex items-center gap-2">
-                    <div className="w-7 h-7 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-xs font-bold">
-                      {c.nombre.charAt(0)}
+            {filtrados.map(c => {
+              const sel = seleccionados.has(c.id)
+              return (
+                <tr key={c.id} className={`hover:bg-slate-50 transition-colors ${sel ? 'bg-primary-50' : ''}`}>
+                  <td className="px-4 py-3">
+                    <input type="checkbox" checked={sel} onChange={() => toggleUno(c.id)}
+                      className="accent-primary-500 w-4 h-4 cursor-pointer" />
+                  </td>
+                  <td className="px-4 py-3 font-medium text-slate-800">
+                    <div className="flex items-center gap-2">
+                      <div className="w-7 h-7 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-xs font-bold">
+                        {c.nombre.charAt(0)}
+                      </div>
+                      {c.nombre}
                     </div>
-                    {c.nombre}
-                  </div>
-                </td>
-                <td className="px-4 py-3 text-slate-500">{c.telefono || '—'}</td>
-                <td className="px-4 py-3 text-slate-500">{c.email || '—'}</td>
-                <td className="px-4 py-3 text-slate-400 text-xs max-w-xs truncate">{c.notas || '—'}</td>
-                <td className="px-4 py-3">
-                  <div className="flex justify-end gap-2">
-                    <button onClick={() => abrirEditar(c)} className="text-slate-400 hover:text-blue-600 transition-colors"><Pencil size={15} /></button>
-                    <button onClick={() => eliminar(c.id)} className="text-slate-400 hover:text-red-500 transition-colors"><Trash2 size={15} /></button>
-                  </div>
-                </td>
-              </tr>
-            ))}
+                  </td>
+                  <td className="px-4 py-3 text-slate-500">{c.telefono || '—'}</td>
+                  <td className="px-4 py-3 text-slate-500">{c.email || '—'}</td>
+                  <td className="px-4 py-3 text-slate-400 text-xs max-w-xs truncate">{c.notas || '—'}</td>
+                  <td className="px-4 py-3">
+                    <div className="flex justify-end gap-2">
+                      <button onClick={() => abrirEditar(c)} className="text-slate-400 hover:text-blue-600 transition-colors"><Pencil size={15} /></button>
+                      <button onClick={() => eliminar(c.id)} className="text-slate-400 hover:text-red-500 transition-colors"><Trash2 size={15} /></button>
+                    </div>
+                  </td>
+                </tr>
+              )
+            })}
           </tbody>
         </table>
       </div>

@@ -120,10 +120,10 @@ async function pullAll() {
       axios.get(`${base}/api/servicios`, { headers, timeout: 10000 }),
       axios.get(`${base}/api/usuarios`,  { headers, timeout: 10000 }),
     ])
-    if (Array.isArray(rBarb.data))  barberos.syncServerIds(rBarb.data)
-    if (Array.isArray(rCli.data))   clientes.syncServerIds(rCli.data)
-    if (Array.isArray(rSvc.data))   servicios.syncServerIds(rSvc.data)
-    if (Array.isArray(rUsr.data))   usuarios.syncServerIds(rUsr.data)
+    if (Array.isArray(rBarb.data))  barberos.upsertFromServer(rBarb.data)
+    if (Array.isArray(rCli.data))   clientes.upsertFromServer(rCli.data)
+    if (Array.isArray(rSvc.data))   servicios.upsertFromServer(rSvc.data)
+    if (Array.isArray(rUsr.data))   usuarios.upsertFromServer(rUsr.data)
 
     // 2. Upsert citas del servidor y reconciliar eliminadas
     const rCitas = await axios.get(`${base}/api/citas`, { headers, timeout: 15000 })

@@ -7,15 +7,44 @@ const ROLES = ['admin', 'empleado']
 
 export default function Usuarios() {
   const { user: me } = useAuth()
-  const [data, setData]       = useState([])
-  const [modal, setModal]     = useState(false)
-  const [form, setForm]       = useState(EMPTY)
-  const [editId, setEditId]   = useState(null)
-  const [loading, setLoading] = useState(false)
+  const [data, setData]           = useState([])
+  const [modal, setModal]         = useState(false)
+  const [form, setForm]           = useState(EMPTY)
+  const [editId, setEditId]       = useState(null)
+  const [loading, setLoading]     = useState(false)
+  const [seleccionados, setSelec] = useState(new Set())
 
-  async function cargar() { setData(await window.api.usuarios.getAll()) }
+  async function cargar() {
+    setData(await window.api.usuarios.getAll())
+    setSelec(new Set())
+  }
   useEffect(() => { cargar() }, [])
 
+  // ── Selección (no puede seleccionarse a sí mismo) ──
+  const elegibles = data.filter(u => u.id !== me?.id)
+  const todosSeleccionados = elegibles.length > 0 && elegibles.every(u => seleccionados.has(u.id))
+
+  function toggleTodos() {
+    todosSeleccionados ? setSelec(new Set()) : setSelec(new Set(elegibles.map(u => u.id)))
+  }
+
+  function toggleUno(id) {
+    if (id === me?.id) return
+    setSelec(prev => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+  }
+
+  async function eliminarSeleccionados() {
+    const ids = [...seleccionados]
+    if (!await window.api.dialog.confirm(`¿Eliminar ${ids.length} usuario(s) seleccionado(s)?`)) return
+    for (const id of ids) await window.api.usuarios.delete(id)
+    await cargar()
+  }
+
+  // ── CRUD ──
   function abrirCrear() { setForm(EMPTY); setEditId(null); setModal(true) }
   function abrirEditar(u) { setForm({ ...u, password: '' }); setEditId(u.id); setModal(true) }
 
@@ -54,10 +83,31 @@ export default function Usuarios() {
         </button>
       </div>
 
+      {/* Barra de selección */}
+      {seleccionados.size > 0 && (
+        <div className="flex items-center justify-between bg-red-50 border border-red-200 rounded-lg px-4 py-2.5">
+          <span className="text-sm font-medium text-red-700">
+            {seleccionados.size} usuario(s) seleccionado(s)
+          </span>
+          <div className="flex items-center gap-3">
+            <button onClick={() => setSelec(new Set())}
+              className="text-xs text-slate-500 hover:text-slate-700">Cancelar</button>
+            <button onClick={eliminarSeleccionados}
+              className="flex items-center gap-1.5 bg-red-500 hover:bg-red-600 text-white text-xs font-medium px-3 py-1.5 rounded-lg transition">
+              <Trash2 size={13} /> Eliminar seleccionados
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
         <table className="w-full text-sm">
           <thead className="bg-slate-50 text-slate-500 text-xs uppercase">
             <tr>
+              <th className="px-4 py-3 text-left w-10">
+                <input type="checkbox" checked={todosSeleccionados} onChange={toggleTodos}
+                  className="accent-primary-500 w-4 h-4 cursor-pointer" />
+              </th>
               <th className="px-4 py-3 text-left">Usuario</th>
               <th className="px-4 py-3 text-left">Email</th>
               <th className="px-4 py-3 text-left">Rol</th>
@@ -68,50 +118,59 @@ export default function Usuarios() {
           </thead>
           <tbody className="divide-y divide-slate-100">
             {data.length === 0 && (
-              <tr><td colSpan={6} className="text-center text-slate-400 py-10">No hay usuarios</td></tr>
+              <tr><td colSpan={7} className="text-center text-slate-400 py-10">No hay usuarios</td></tr>
             )}
-            {data.map(u => (
-              <tr key={u.id} className="hover:bg-slate-50 transition-colors">
-                <td className="px-4 py-3">
-                  <div className="flex items-center gap-2 cursor-pointer" onClick={() => abrirEditar(u)}>
-                    <div className="w-8 h-8 bg-primary-500 rounded-full flex items-center justify-center text-white text-xs font-bold">
-                      {u.nombre.charAt(0)}
+            {data.map(u => {
+              const sel   = seleccionados.has(u.id)
+              const esYo  = u.id === me?.id
+              return (
+                <tr key={u.id} className={`hover:bg-slate-50 transition-colors ${sel ? 'bg-primary-50' : ''}`}>
+                  <td className="px-4 py-3">
+                    <input type="checkbox" checked={sel} onChange={() => toggleUno(u.id)}
+                      disabled={esYo}
+                      className="accent-primary-500 w-4 h-4 cursor-pointer disabled:opacity-30" />
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-2 cursor-pointer" onClick={() => abrirEditar(u)}>
+                      <div className="w-8 h-8 bg-primary-500 rounded-full flex items-center justify-center text-white text-xs font-bold">
+                        {u.nombre.charAt(0)}
+                      </div>
+                      <div>
+                        <p className="font-medium text-slate-800 hover:text-primary-600 transition-colors">{u.nombre}</p>
+                        {esYo && <p className="text-xs text-primary-500">Tú</p>}
+                      </div>
                     </div>
-                    <div>
-                      <p className="font-medium text-slate-800 hover:text-primary-600 transition-colors">{u.nombre}</p>
-                      {u.id === me?.id && <p className="text-xs text-primary-500">Tú</p>}
-                    </div>
-                  </div>
-                </td>
-                <td className="px-4 py-3 text-slate-500">{u.email}</td>
-                <td className="px-4 py-3">
-                  <span className={`text-xs font-medium px-2 py-1 rounded-full flex items-center gap-1 w-fit ${u.rol === 'admin' ? 'bg-purple-100 text-purple-700' : 'bg-slate-100 text-slate-600'}`}>
-                    {u.rol === 'admin' && <ShieldCheck size={11} />} {u.rol}
-                  </span>
-                </td>
-                <td className="px-4 py-3">
-                  {u.barbero_nombre ? (
-                    <span className="flex items-center gap-1 text-xs text-slate-600">
-                      <Scissors size={11} className="text-primary-500" /> {u.barbero_nombre}
+                  </td>
+                  <td className="px-4 py-3 text-slate-500">{u.email}</td>
+                  <td className="px-4 py-3">
+                    <span className={`text-xs font-medium px-2 py-1 rounded-full flex items-center gap-1 w-fit ${u.rol === 'admin' ? 'bg-purple-100 text-purple-700' : 'bg-slate-100 text-slate-600'}`}>
+                      {u.rol === 'admin' && <ShieldCheck size={11} />} {u.rol}
                     </span>
-                  ) : (
-                    <span className="text-xs text-slate-300">—</span>
-                  )}
-                </td>
-                <td className="px-4 py-3">
-                  <span className={`text-xs font-medium px-2 py-1 rounded-full ${u.activo ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'}`}>
-                    {u.activo ? 'Activo' : 'Inactivo'}
-                  </span>
-                </td>
-                <td className="px-4 py-3">
-                  <div className="flex justify-end gap-2">
-                    <button onClick={() => abrirEditar(u)} className="text-slate-400 hover:text-blue-600 transition-colors"><Pencil size={15} /></button>
-                    <button onClick={() => eliminar(u.id)} disabled={u.id === me?.id}
-                      className="text-slate-400 hover:text-red-500 transition-colors disabled:opacity-30"><Trash2 size={15} /></button>
-                  </div>
-                </td>
-              </tr>
-            ))}
+                  </td>
+                  <td className="px-4 py-3">
+                    {u.barbero_nombre ? (
+                      <span className="flex items-center gap-1 text-xs text-slate-600">
+                        <Scissors size={11} className="text-primary-500" /> {u.barbero_nombre}
+                      </span>
+                    ) : (
+                      <span className="text-xs text-slate-300">—</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3">
+                    <span className={`text-xs font-medium px-2 py-1 rounded-full ${u.activo ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'}`}>
+                      {u.activo ? 'Activo' : 'Inactivo'}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex justify-end gap-2">
+                      <button onClick={() => abrirEditar(u)} className="text-slate-400 hover:text-blue-600 transition-colors"><Pencil size={15} /></button>
+                      <button onClick={() => eliminar(u.id)} disabled={esYo}
+                        className="text-slate-400 hover:text-red-500 transition-colors disabled:opacity-30"><Trash2 size={15} /></button>
+                    </div>
+                  </td>
+                </tr>
+              )
+            })}
           </tbody>
         </table>
       </div>

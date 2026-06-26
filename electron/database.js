@@ -278,6 +278,32 @@ const usuarios = {
       if (local && s.id) qRun('UPDATE usuarios SET server_id=? WHERE id=?', [s.id, local.id])
     }
   },
+  // Inserta o actualiza usuarios desde el servidor (pull multi-PC)
+  upsertFromServer: (serverItems) => {
+    for (const s of serverItems) {
+      // 1. Buscar por server_id
+      const byServerId = s.id ? qGet('SELECT id FROM usuarios WHERE server_id=?', [s.id]) : null
+      if (byServerId) {
+        qRun('UPDATE usuarios SET nombre=?,email=?,rol=?,activo=?,updated_at=?,sync_status=? WHERE id=?',
+          [s.nombre, s.email, s.rol||'empleado', s.activo??1, s.updated_at||now(), 'synced', byServerId.id])
+        continue
+      }
+      // 2. Buscar por email
+      const byEmail = s.email ? qGet('SELECT id FROM usuarios WHERE email=? COLLATE NOCASE', [s.email]) : null
+      if (byEmail) {
+        qRun('UPDATE usuarios SET nombre=?,rol=?,activo=?,updated_at=?,sync_status=?,server_id=? WHERE id=?',
+          [s.nombre, s.rol||'empleado', s.activo??1, s.updated_at||now(), 'synced', s.id, byEmail.id])
+        continue
+      }
+      // 3. Insertar nuevo — resolver barbero local desde server_id
+      const localBarbero = s.barbero_id ? qGet('SELECT id FROM barberos WHERE server_id=?', [s.barbero_id]) : null
+      qRun(
+        'INSERT INTO usuarios (nombre,email,password,rol,activo,barbero_id,created_at,updated_at,server_id,sync_status) VALUES (?,?,?,?,?,?,?,?,?,?)',
+        [s.nombre, s.email, '*', s.rol||'empleado', s.activo??1,
+         localBarbero?.id||null, s.created_at||now(), s.updated_at||now(), s.id, 'synced']
+      )
+    }
+  },
 }
 
 // ==================== BARBEROS ====================
@@ -315,6 +341,27 @@ const barberos = {
       if (local && s.id) qRun('UPDATE barberos SET server_id=? WHERE id=?', [s.id, local.id])
     }
   },
+  // Inserta o actualiza barberos desde el servidor (pull multi-PC)
+  upsertFromServer: (serverItems) => {
+    for (const s of serverItems) {
+      const byServerId = s.id ? qGet('SELECT id FROM barberos WHERE server_id=?', [s.id]) : null
+      if (byServerId) {
+        qRun('UPDATE barberos SET nombre=?,telefono=?,email=?,especialidad=?,activo=?,updated_at=?,sync_status=? WHERE id=?',
+          [s.nombre, s.telefono||null, s.email||null, s.especialidad||null, s.activo??1, s.updated_at||now(), 'synced', byServerId.id])
+        continue
+      }
+      const byEmail  = s.email  ? qGet('SELECT id FROM barberos WHERE email=? COLLATE NOCASE', [s.email]) : null
+      const byNombre = !byEmail && s.nombre ? qGet('SELECT id FROM barberos WHERE nombre=? COLLATE NOCASE', [s.nombre]) : null
+      const existing = byEmail || byNombre
+      if (existing) {
+        qRun('UPDATE barberos SET nombre=?,telefono=?,email=?,especialidad=?,activo=?,updated_at=?,sync_status=?,server_id=? WHERE id=?',
+          [s.nombre, s.telefono||null, s.email||null, s.especialidad||null, s.activo??1, s.updated_at||now(), 'synced', s.id, existing.id])
+      } else {
+        qRun('INSERT INTO barberos (nombre,telefono,email,especialidad,activo,created_at,updated_at,server_id,sync_status) VALUES (?,?,?,?,?,?,?,?,?)',
+          [s.nombre, s.telefono||null, s.email||null, s.especialidad||null, s.activo??1, s.created_at||now(), s.updated_at||now(), s.id, 'synced'])
+      }
+    }
+  },
 }
 
 // ==================== CLIENTES ====================
@@ -350,6 +397,26 @@ const clientes = {
       if (local && s.id) qRun('UPDATE clientes SET server_id=? WHERE id=?', [s.id, local.id])
     }
   },
+  upsertFromServer: (serverItems) => {
+    for (const s of serverItems) {
+      const byServerId = s.id ? qGet('SELECT id FROM clientes WHERE server_id=?', [s.id]) : null
+      if (byServerId) {
+        qRun('UPDATE clientes SET nombre=?,telefono=?,email=?,notas=?,updated_at=?,sync_status=? WHERE id=?',
+          [s.nombre, s.telefono||null, s.email||null, s.notas||null, s.updated_at||now(), 'synced', byServerId.id])
+        continue
+      }
+      const byEmail  = s.email  ? qGet('SELECT id FROM clientes WHERE email=? COLLATE NOCASE', [s.email]) : null
+      const byNombre = !byEmail && s.nombre ? qGet('SELECT id FROM clientes WHERE nombre=? COLLATE NOCASE', [s.nombre]) : null
+      const existing = byEmail || byNombre
+      if (existing) {
+        qRun('UPDATE clientes SET nombre=?,telefono=?,email=?,notas=?,updated_at=?,sync_status=?,server_id=? WHERE id=?',
+          [s.nombre, s.telefono||null, s.email||null, s.notas||null, s.updated_at||now(), 'synced', s.id, existing.id])
+      } else {
+        qRun('INSERT INTO clientes (nombre,telefono,email,notas,created_at,updated_at,server_id,sync_status) VALUES (?,?,?,?,?,?,?,?)',
+          [s.nombre, s.telefono||null, s.email||null, s.notas||null, s.created_at||now(), s.updated_at||now(), s.id, 'synced'])
+      }
+    }
+  },
 }
 
 // ==================== SERVICIOS ====================
@@ -382,6 +449,24 @@ const servicios = {
     for (const s of serverItems) {
       const local = qGet('SELECT id FROM servicios WHERE nombre=? COLLATE NOCASE', [s.nombre])
       if (local && s.id) qRun('UPDATE servicios SET server_id=? WHERE id=?', [s.id, local.id])
+    }
+  },
+  upsertFromServer: (serverItems) => {
+    for (const s of serverItems) {
+      const byServerId = s.id ? qGet('SELECT id FROM servicios WHERE server_id=?', [s.id]) : null
+      if (byServerId) {
+        qRun('UPDATE servicios SET nombre=?,descripcion=?,precio=?,duracion=?,activo=?,updated_at=?,sync_status=? WHERE id=?',
+          [s.nombre, s.descripcion||null, s.precio||0, s.duracion||30, s.activo??1, s.updated_at||now(), 'synced', byServerId.id])
+        continue
+      }
+      const byNombre = s.nombre ? qGet('SELECT id FROM servicios WHERE nombre=? COLLATE NOCASE', [s.nombre]) : null
+      if (byNombre) {
+        qRun('UPDATE servicios SET nombre=?,descripcion=?,precio=?,duracion=?,activo=?,updated_at=?,sync_status=?,server_id=? WHERE id=?',
+          [s.nombre, s.descripcion||null, s.precio||0, s.duracion||30, s.activo??1, s.updated_at||now(), 'synced', s.id, byNombre.id])
+      } else {
+        qRun('INSERT INTO servicios (nombre,descripcion,precio,duracion,activo,created_at,updated_at,server_id,sync_status) VALUES (?,?,?,?,?,?,?,?,?)',
+          [s.nombre, s.descripcion||null, s.precio||0, s.duracion||30, s.activo??1, s.created_at||now(), s.updated_at||now(), s.id, 'synced'])
+      }
     }
   },
 }

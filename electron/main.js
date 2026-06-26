@@ -60,8 +60,17 @@ function configurarAutoUpdater() {
     }
   })
 
+  autoUpdater.on('update-not-available', () => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('update:al-dia')
+    }
+  })
+
   autoUpdater.on('error', (err) => {
     console.warn('⚠️ Error al verificar actualizaciones:', err.message)
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('update:error', { mensaje: err.message })
+    }
   })
 }
 
@@ -72,6 +81,17 @@ ipcMain.handle('update:instalar', () => {
 
 // IPC: el renderer pide el estado actual (por si montó después del evento)
 ipcMain.handle('update:estado', () => updateState)
+
+// IPC: verificar actualizaciones manualmente desde Configuración
+ipcMain.handle('update:verificar', async () => {
+  if (isDev) return { error: 'dev' }
+  try {
+    await autoUpdater.checkForUpdates()
+    return { ok: true }
+  } catch (err) {
+    return { error: err.message }
+  }
+})
 
 // ==================== VENTANA PRINCIPAL ====================
 function createWindow() {
