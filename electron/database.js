@@ -344,21 +344,34 @@ const barberos = {
   // Inserta o actualiza barberos desde el servidor (pull multi-PC)
   upsertFromServer: (serverItems) => {
     for (const s of serverItems) {
+      let localId = null
+
       const byServerId = s.id ? qGet('SELECT id FROM barberos WHERE server_id=?', [s.id]) : null
       if (byServerId) {
         qRun('UPDATE barberos SET nombre=?,telefono=?,email=?,especialidad=?,activo=?,updated_at=?,sync_status=? WHERE id=?',
           [s.nombre, s.telefono||null, s.email||null, s.especialidad||null, s.activo??1, s.updated_at||now(), 'synced', byServerId.id])
-        continue
-      }
-      const byEmail  = s.email  ? qGet('SELECT id FROM barberos WHERE email=? COLLATE NOCASE', [s.email]) : null
-      const byNombre = !byEmail && s.nombre ? qGet('SELECT id FROM barberos WHERE nombre=? COLLATE NOCASE', [s.nombre]) : null
-      const existing = byEmail || byNombre
-      if (existing) {
-        qRun('UPDATE barberos SET nombre=?,telefono=?,email=?,especialidad=?,activo=?,updated_at=?,sync_status=?,server_id=? WHERE id=?',
-          [s.nombre, s.telefono||null, s.email||null, s.especialidad||null, s.activo??1, s.updated_at||now(), 'synced', s.id, existing.id])
+        localId = byServerId.id
       } else {
-        qRun('INSERT INTO barberos (nombre,telefono,email,especialidad,activo,created_at,updated_at,server_id,sync_status) VALUES (?,?,?,?,?,?,?,?,?)',
-          [s.nombre, s.telefono||null, s.email||null, s.especialidad||null, s.activo??1, s.created_at||now(), s.updated_at||now(), s.id, 'synced'])
+        const byEmail  = s.email  ? qGet('SELECT id FROM barberos WHERE email=? COLLATE NOCASE', [s.email]) : null
+        const byNombre = !byEmail && s.nombre ? qGet('SELECT id FROM barberos WHERE nombre=? COLLATE NOCASE', [s.nombre]) : null
+        const existing = byEmail || byNombre
+        if (existing) {
+          qRun('UPDATE barberos SET nombre=?,telefono=?,email=?,especialidad=?,activo=?,updated_at=?,sync_status=?,server_id=? WHERE id=?',
+            [s.nombre, s.telefono||null, s.email||null, s.especialidad||null, s.activo??1, s.updated_at||now(), 'synced', s.id, existing.id])
+          localId = existing.id
+        } else {
+          qRun('INSERT INTO barberos (nombre,telefono,email,especialidad,activo,created_at,updated_at,server_id,sync_status) VALUES (?,?,?,?,?,?,?,?,?)',
+            [s.nombre, s.telefono||null, s.email||null, s.especialidad||null, s.activo??1, s.created_at||now(), s.updated_at||now(), s.id, 'synced'])
+          localId = lastId()
+        }
+      }
+
+      // Si el servidor envía porcentaje_comision, sincronizarlo en comisiones_config local
+      if (localId && s.porcentaje_comision != null) {
+        qRun(
+          'INSERT OR REPLACE INTO comisiones_config (barbero_id, porcentaje_barbero, updated_at) VALUES (?, ?, datetime("now"))',
+          [localId, Number(s.porcentaje_comision)]
+        )
       }
     }
   },
@@ -721,15 +734,19 @@ const comisionesConfig = {
     FROM barberos b
     LEFT JOIN comisiones_config cc ON cc.barbero_id = b.id
     WHERE b.activo = 1
-    ORDER BY b.nombre
   `),
-  /** Guarda el porcentaje del barbero (el resto es para el admin) */
+
+  /** Guarda el % localmente Y lo encola para sincronizar al servidor */
   set: (barberoId, porcentajeBarbero) => {
     qRun(
       `INSERT OR REPLACE INTO comisiones_config (barbero_id, porcentaje_barbero, updated_at)
        VALUES (?, ?, datetime('now'))`,
       [barberoId, porcentajeBarbero]
     )
+    const barbero = qGet('SELECT id, server_id FROM barberos WHERE id=?', [barberoId])
+    if (barbero?.server_id) {
+      encolarSync('barberos', 'update', { porcentaje_comision: porcentajeBarbero }, barberoId, barbero.server_id)
+    }
   },
 }
 
@@ -742,7 +759,7 @@ module.exports = {
   servicios,
   citas,
   dashboard,
-  syncQueue,
   config,
   comisionesConfig,
+  syncQueue,
 }
