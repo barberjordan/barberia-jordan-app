@@ -109,7 +109,7 @@ export default function Reportes() {
     // Hoja 2: Liquidación
     const wsLiq = XLSX.utils.json_to_sheet([
       ['LIQUIDACIÓN DE BARBEROS — ' + mes], [],
-      ['Barbero', 'Citas completadas', 'Total vendido ($)', 'Comisión barbero ($)', 'Ganancia dueño ($)'],
+      ['Barbero', 'Citas completadas', 'Total Servicios ($)', 'Comisión barbero ($)', 'Ganancia dueño ($)'],
       ...comisiones.map(b => [
         b.barbero,
         b.citas_completadas,
@@ -296,7 +296,7 @@ export default function Reportes() {
               <tr>
                 <th className="px-4 py-3 text-left">Barbero</th>
                 <th className="px-4 py-3 text-right">Citas</th>
-                <th className="px-4 py-3 text-right">Total vendido</th>
+                <th className="px-4 py-3 text-right">Total Servicios</th>
                 <th className="px-4 py-3 text-right">Comisión barbero</th>
                 <th className="px-4 py-3 text-right">Ganancia dueño</th>
               </tr>

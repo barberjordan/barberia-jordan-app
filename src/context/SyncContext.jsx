@@ -3,9 +3,10 @@ import React, { createContext, useState, useEffect, useContext, useCallback } fr
 export const SyncContext = createContext(null)
 
 export function SyncProvider({ children }) {
-  const [online, setOnline] = useState(false)
-  const [progreso, setProgreso] = useState('')
+  const [online, setOnline]           = useState(false)
+  const [progreso, setProgreso]       = useState('')
   const [refreshTick, setRefreshTick] = useState(0)
+  const [notificaciones, setNotifs]   = useState([])   // citas nuevas pendientes de ver
 
   useEffect(() => {
     if (window.api?.sync) {
@@ -17,6 +18,10 @@ export function SyncProvider({ children }) {
       window.api.sync.refresh(() => {
         setRefreshTick(t => t + 1)
       })
+      // Escuchar citas nuevas detectadas por el proceso de sync
+      window.api.sync.onCitaNueva((cita) => {
+        setNotifs(prev => [...prev, cita])
+      })
     }
   }, [])
 
@@ -24,8 +29,12 @@ export function SyncProvider({ children }) {
     await window.api.sync.forzar()
   }
 
+  function dismissNotificacion() {
+    setNotifs(prev => prev.slice(1))
+  }
+
   return (
-    <SyncContext.Provider value={{ online, progreso, forzarSync, refreshTick }}>
+    <SyncContext.Provider value={{ online, progreso, forzarSync, refreshTick, notificaciones, dismissNotificacion }}>
       {children}
     </SyncContext.Provider>
   )

@@ -1,9 +1,13 @@
 const axios = require('axios')
 const { syncQueue, config, citas, barberos, clientes, servicios, usuarios } = require('./database')
 
-let syncInterval = null
-let isOnline = false
-let syncWindow = null // referencia a la ventana principal para emitir eventos
+let syncInterval  = null
+let isOnline      = false
+let syncWindow    = null  // referencia a la ventana principal para emitir eventos
+
+// IDs de citas ya conocidas al momento de iniciar — no se notifican (son citas viejas)
+const citasYaConocidas = new Set()
+let primeraSync = true
 
 const SYNC_INTERVAL_MS = 30000 // cada 30 segundos
 
@@ -29,6 +33,21 @@ function notificarEstado(online) {
 function notificarProgreso(msg) {
   if (syncWindow && !syncWindow.isDestroyed()) {
     syncWindow.webContents.send('sync:progreso', { msg })
+  }
+}
+
+function notificarCitaNueva(cita) {
+  if (syncWindow && !syncWindow.isDestroyed()) {
+    syncWindow.webContents.send('cita:nueva', {
+      id:              cita.id,
+      barbero_nombre:  cita.barbero_nombre,
+      cliente_nombre:  cita.cliente_nombre,
+      servicio_nombre: cita.servicio_nombre,
+      fecha:           cita.fecha,
+      hora:            cita.hora,
+      precio_total:    cita.precio_total,
+      estado:          cita.estado,
+    })
   }
 }
 
@@ -129,6 +148,22 @@ async function pullAll() {
     const rCitas = await axios.get(`${base}/api/citas`, { headers, timeout: 15000 })
     const items  = rCitas.data?.data || rCitas.data || []
     citas.upsertFromServer(items)
+
+    // Detectar citas nuevas (las que no estaban en el set conocido)
+    if (primeraSync) {
+      // Primera vez: marcar TODAS como ya conocidas — no notificar citas viejas
+      for (const item of items) { if (item.id) citasYaConocidas.add(item.id) }
+      primeraSync = false
+    } else {
+      // Pulls siguientes: solo las IDs nuevas disparan notificación
+      for (const c of items) {
+        if (c.id && !citasYaConocidas.has(c.id)) {
+          citasYaConocidas.add(c.id)
+          notificarCitaNueva(c)
+        }
+      }
+    }
+
     // Eliminar localmente las citas que ya no existen en el servidor
     const serverIds = items.map(i => i.id)
     if (serverIds.length > 0) {
