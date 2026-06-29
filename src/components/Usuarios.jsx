@@ -2,12 +2,13 @@ import React, { useEffect, useState } from 'react'
 import { Plus, Pencil, Trash2, X, ShieldCheck, Scissors } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 
-const EMPTY = { nombre: '', email: '', password: '', rol: 'empleado', activo: 1 }
+const EMPTY = { nombre: '', email: '', password: '', rol: 'empleado', activo: 1, porcentaje_comision: 55 }
 const ROLES = ['admin', 'empleado']
 
 export default function Usuarios() {
   const { user: me } = useAuth()
   const [data, setData]           = useState([])
+  const [comisiones, setComisiones] = useState([])   // [{barbero_id, nombre, porcentaje_barbero}]
   const [modal, setModal]         = useState(false)
   const [form, setForm]           = useState(EMPTY)
   const [editId, setEditId]       = useState(null)
@@ -15,12 +16,23 @@ export default function Usuarios() {
   const [seleccionados, setSelec] = useState(new Set())
 
   async function cargar() {
-    setData(await window.api.usuarios.getAll())
+    const [users, coms] = await Promise.all([
+      window.api.usuarios.getAll(),
+      window.api.comisiones.getConfig(),
+    ])
+    setData(users)
+    setComisiones(Array.isArray(coms) ? coms : [])
     setSelec(new Set())
   }
   useEffect(() => { cargar() }, [])
 
-  // ── Selección (no puede seleccionarse a sí mismo) ──
+  // Devuelve el porcentaje del barbero vinculado al usuario
+  function getPct(u) {
+    if (!u.barbero_id) return null
+    return comisiones.find(c => c.barbero_id === u.barbero_id)?.porcentaje_barbero ?? 55
+  }
+
+  // ── Selección ──
   const elegibles = data.filter(u => u.id !== me?.id)
   const todosSeleccionados = elegibles.length > 0 && elegibles.every(u => seleccionados.has(u.id))
 
@@ -46,21 +58,42 @@ export default function Usuarios() {
 
   // ── CRUD ──
   function abrirCrear() { setForm(EMPTY); setEditId(null); setModal(true) }
-  function abrirEditar(u) { setForm({ ...u, password: '' }); setEditId(u.id); setModal(true) }
+
+  function abrirEditar(u) {
+    const pct = getPct(u) ?? 55
+    setForm({ ...u, password: '', porcentaje_comision: pct })
+    setEditId(u.id)
+    setModal(true)
+  }
 
   async function guardar(e) {
     e.preventDefault()
     setLoading(true)
-    if (editId) {
-      const payload = { ...form }
-      if (!payload.password) delete payload.password
-      await window.api.usuarios.update(editId, payload)
-    } else {
-      await window.api.usuarios.create(form)
+    try {
+      if (editId) {
+        const payload = { ...form }
+        if (!payload.password) delete payload.password
+        await window.api.usuarios.update(editId, payload)
+        // Guardar comisión si es empleado con barbero vinculado
+        if (form.rol === 'empleado' && form.barbero_id) {
+          await window.api.comisiones.setConfig(form.barbero_id, Number(form.porcentaje_comision) || 55)
+        }
+      } else {
+        await window.api.usuarios.create(form)
+        // Buscar el nuevo barbero_id y guardar comisión
+        if (form.rol === 'empleado') {
+          const users = await window.api.usuarios.getAll()
+          const newUser = users.find(u => u.email.toLowerCase() === form.email.toLowerCase())
+          if (newUser?.barbero_id) {
+            await window.api.comisiones.setConfig(newUser.barbero_id, Number(form.porcentaje_comision) || 55)
+          }
+        }
+      }
+      setModal(false)
+      await cargar()
+    } finally {
+      setLoading(false)
     }
-    setModal(false)
-    await cargar()
-    setLoading(false)
   }
 
   async function eliminar(id) {
@@ -112,6 +145,7 @@ export default function Usuarios() {
               <th className="px-4 py-3 text-left">Email</th>
               <th className="px-4 py-3 text-left">Rol</th>
               <th className="px-4 py-3 text-left">Barbero vinculado</th>
+              <th className="px-4 py-3 text-left">% Comisión</th>
               <th className="px-4 py-3 text-left">Estado</th>
               <th className="px-4 py-3 text-right">Acciones</th>
             </tr>
@@ -151,6 +185,15 @@ export default function Usuarios() {
                     {u.barbero_nombre ? (
                       <span className="flex items-center gap-1 text-xs text-slate-600">
                         <Scissors size={11} className="text-primary-500" /> {u.barbero_nombre}
+                      </span>
+                    ) : (
+                      <span className="text-xs text-slate-300">—</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3">
+                    {u.rol === 'empleado' && u.barbero_id != null ? (
+                      <span className="text-xs font-semibold text-amber-700 bg-amber-50 px-2 py-1 rounded-full">
+                        {getPct(u)}%
                       </span>
                     ) : (
                       <span className="text-xs text-slate-300">—</span>
@@ -212,6 +255,36 @@ export default function Usuarios() {
                   </p>
                 )}
               </div>
+              {form.rol === 'empleado' && (
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                    % Comisión del barbero
+                  </label>
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="range" min="0" max="100" step="1"
+                      value={form.porcentaje_comision}
+                      onChange={e => setForm(f => ({ ...f, porcentaje_comision: Number(e.target.value) }))}
+                      className="flex-1 accent-amber-500"
+                    />
+                    <input
+                      type="number" min="0" max="100"
+                      value={form.porcentaje_comision}
+                      onChange={e => setForm(f => ({ ...f, porcentaje_comision: Math.min(100, Math.max(0, Number(e.target.value) || 0)) }))}
+                      className="w-16 border border-slate-200 rounded-lg px-2 py-1.5 text-sm text-center focus:outline-none focus:ring-2 focus:ring-primary-400"
+                    />
+                  </div>
+                  {/* Barra visual */}
+                  <div className="mt-2 h-2.5 rounded-full overflow-hidden bg-slate-100 flex">
+                    <div className="bg-amber-400 transition-all duration-150" style={{ width: `${form.porcentaje_comision}%` }} />
+                    <div className="bg-green-500 transition-all duration-150"  style={{ width: `${100 - form.porcentaje_comision}%` }} />
+                  </div>
+                  <div className="flex justify-between text-xs text-slate-400 mt-1">
+                    <span>🟡 Barbero: <strong className="text-amber-700">{form.porcentaje_comision}%</strong></span>
+                    <span>🟢 Admin: <strong className="text-green-700">{100 - form.porcentaje_comision}%</strong></span>
+                  </div>
+                </div>
+              )}
               <label className="flex items-center gap-2 text-sm">
                 <input type="checkbox" checked={!!form.activo} onChange={e => setForm(f => ({ ...f, activo: e.target.checked ? 1 : 0 }))} className="accent-primary-500" />
                 Activo

@@ -57,13 +57,20 @@ contextBridge.exposeInMainWorld('api', {
 
   // ---- SYNC ----
   sync: {
-    forzar:       ()   => ipcRenderer.invoke('sync:forzar'),
-    estado:       (cb) => ipcRenderer.on('sync:estado',   (_e, data) => cb(data)),
-    progreso:     (cb) => ipcRenderer.on('sync:progreso', (_e, data) => cb(data)),
-    refresh:      (cb) => ipcRenderer.on('sync:refresh',  (_e)       => cb()),
-    onCitaNueva:  (cb) => ipcRenderer.on('cita:nueva',   (_e, data) => cb(data)),
-    getApiUrl:    ()   => ipcRenderer.invoke('config:get', 'api_url'),
+    forzar:       ()    => ipcRenderer.invoke('sync:forzar'),
+    descargar:    ()    => ipcRenderer.invoke('sync:descargar'),
+    setInterval:  (ms)  => ipcRenderer.invoke('sync:setInterval', ms),
+    estado:       (cb)  => ipcRenderer.on('sync:estado',   (_e, data) => cb(data)),
+    progreso:     (cb)  => ipcRenderer.on('sync:progreso', (_e, data) => cb(data)),
+    refresh:      (cb)  => ipcRenderer.on('sync:refresh',  (_e)       => cb()),
+    onCitaNueva:  (cb)  => ipcRenderer.on('cita:nueva',   (_e, data) => cb(data)),
+    getApiUrl:    ()    => ipcRenderer.invoke('config:get', 'api_url'),
     setApiUrl:    (url) => ipcRenderer.invoke('config:set', 'api_url', url),
+  },
+
+  // ---- EXPORTAR ----
+  exportar: {
+    citas: (rows, mes) => ipcRenderer.invoke('export:citas', rows, mes),
   },
 
   // ---- CONFIG ----

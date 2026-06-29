@@ -9,7 +9,12 @@ let syncWindow    = null  // referencia a la ventana principal para emitir event
 const citasYaConocidas = new Set()
 let primeraSync = true
 
-const SYNC_INTERVAL_MS = 30000 // cada 30 segundos
+const DEFAULT_INTERVAL_MS = 30000
+
+function getIntervalMs() {
+  const saved = config.get('sync_interval')
+  return saved ? Number(saved) : DEFAULT_INTERVAL_MS
+}
 
 function setSyncWindow(win) {
   syncWindow = win
@@ -202,10 +207,14 @@ async function cicloSync() {
 
 function iniciarSync(win) {
   setSyncWindow(win)
-  // Primera verificación inmediata
   cicloSync()
-  // Luego cada 30s
-  syncInterval = setInterval(cicloSync, SYNC_INTERVAL_MS)
+  syncInterval = setInterval(cicloSync, getIntervalMs())
+}
+
+function reiniciarConIntervalo(ms) {
+  if (syncInterval) clearInterval(syncInterval)
+  syncInterval = setInterval(cicloSync, ms)
+  console.log(`🔄 Intervalo de sync actualizado a ${ms / 1000}s`)
 }
 
 function detenerSync() {
@@ -229,5 +238,6 @@ module.exports = {
   forzarSync,
   estaOnline,
   descargarDatos,
+  reiniciarConIntervalo,
   setSyncWindow,
 }

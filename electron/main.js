@@ -1,5 +1,6 @@
 const { app, BrowserWindow, ipcMain, shell, dialog } = require('electron')
 const path = require('path')
+const XLSX = require('xlsx')
 const { autoUpdater } = require('electron-updater')
 const { initDatabase, loginLocal, usuarios, barberos, clientes, servicios, citas, dashboard, config, comisionesConfig } = require('./database')
 const sync = require('./sync')
@@ -211,6 +212,35 @@ ipcMain.handle('dashboard:getBalanceHistorico', (_e, meses) => dashboard.getBala
 ipcMain.handle('sync:forzar', async () => {
   await sync.forzarSync()
   return { ok: true }
+})
+
+ipcMain.handle('sync:descargar', async () => {
+  await sync.descargarDatos()
+  return { ok: true }
+})
+
+ipcMain.handle('sync:setInterval', (_e, ms) => {
+  config.set('sync_interval', String(ms))
+  sync.reiniciarConIntervalo(ms)
+  return true
+})
+
+// EXPORTAR EXCEL
+ipcMain.handle('export:citas', async (_e, rows, mes) => {
+  const { filePath } = await dialog.showSaveDialog(mainWindow, {
+    title: 'Guardar exportación de citas',
+    defaultPath: `citas-${mes}.xlsx`,
+    filters: [{ name: 'Excel', extensions: ['xlsx'] }],
+  })
+  if (!filePath) return { ok: false }
+  const ws = XLSX.utils.json_to_sheet(rows)
+  // Ancho de columnas automático
+  const cols = Object.keys(rows[0] || {}).map(k => ({ wch: Math.max(k.length, 14) }))
+  ws['!cols'] = cols
+  const wb = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(wb, ws, 'Citas')
+  XLSX.writeFile(wb, filePath)
+  return { ok: true, path: filePath }
 })
 
 // CONFIG
