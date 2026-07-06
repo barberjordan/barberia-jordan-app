@@ -14,6 +14,8 @@ import Citas from './components/Citas'
 import Reportes from './components/Reportes'
 import Usuarios from './components/Usuarios'
 import Configuracion from './components/Configuracion'
+import Caja from './components/Caja'
+import Gastos from './components/Gastos'
 import NotificacionCita from './components/NotificacionCita'
 
 function AppInner() {
@@ -40,6 +42,8 @@ function AppInner() {
               <Route path="/clientes"   element={<Clientes />} />
               <Route path="/servicios"  element={<Servicios />} />
               <Route path="/citas"      element={<Citas />} />
+              <Route path="/caja"       element={<Caja />} />
+              <Route path="/gastos"     element={<Gastos />} />
               <Route path="/reportes"   element={<Reportes />} />
               <Route path="/usuarios"       element={<Usuarios />} />
               <Route path="/configuracion"  element={<Configuracion />} />

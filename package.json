@@ -1,6 +1,6 @@
 {
   "name": "barberia-jordan",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Sistema de gestión para Barbería Jordan",
   "main": "electron/main.js",
   "author": "Barbería Jordan",

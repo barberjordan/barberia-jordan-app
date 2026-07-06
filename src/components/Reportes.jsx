@@ -15,6 +15,7 @@ export default function Reportes() {
   const [historico, setHistorico]   = useState([])
   const [configPct, setConfigPct]   = useState([])
   const [mes, setMes]               = useState(new Date().toISOString().slice(0, 7))
+  const [fecha, setFecha]           = useState(() => new Date().toISOString().slice(0, 10))
   const [expandedBarbero, setExpandedBarbero] = useState(null)
 
   useEffect(() => {
@@ -43,6 +44,31 @@ export default function Reportes() {
   const ingresosMes   = completadas.reduce((a, c) => a + Number(c.precio_total), 0)
   const totalBarberos = comisiones.reduce((a, b) => a + Number(b.pago_barbero || 0), 0)
   const totalAdmin    = comisiones.reduce((a, b) => a + Number(b.ganancia_admin || 0), 0)
+
+  // Liquidación por día (fecha seleccionada)
+  const citasDia = useMemo(() =>
+    citas.filter(c => c.fecha === fecha && c.estado === 'completada')
+  , [citas, fecha])
+
+  const liquidacionDia = useMemo(() => {
+    const map = {}
+    for (const c of citasDia) {
+      const key = c.barbero_nombre || 'Sin asignar'
+      const pct = configPct.find(p => p.barbero_id === c.barbero_id)?.porcentaje_barbero ?? 55
+      if (!map[key]) map[key] = { nombre: key, citas: 0, total: 0, pct, svcs: {} }
+      map[key].citas++
+      map[key].total += Number(c.precio_total || 0)
+      for (const sv of (c.servicio_nombre || '').split(' + ')) {
+        const t = sv.trim(); if (!t) continue
+        map[key].svcs[t] = (map[key].svcs[t] || 0) + 1
+      }
+    }
+    return Object.values(map).map(b => ({
+      ...b,
+      pagoBarbero:   b.total * b.pct / 100,
+      gananciaAdmin: b.total * (100 - b.pct) / 100,
+    })).sort((a, b) => b.total - a.total)
+  }, [citasDia, configPct])
 
   // Servicios por barbero (solo citas completadas del mes)
   const serviciosPorBarbero = useMemo(() => {
@@ -259,125 +285,146 @@ export default function Reportes() {
         </div>
       </div>
 
-      {/* ==================== LIQUIDACIÓN DE BARBEROS ==================== */}
-      <div>
-        <h2 className="text-base font-bold text-slate-700 mb-1">
-          Liquidación de barberos
-          <span className="ml-2 text-xs font-normal text-slate-400">
-            {pctBarberoLabel} barbero · {pctAdminLabel} admin · solo citas completadas
-          </span>
-        </h2>
+      {/* ==================== LIQUIDACIÓN POR DÍA ==================== */}
+      {(() => {
+        const totalDiaVentas   = liquidacionDia.reduce((a, b) => a + b.total, 0)
+        const totalDiaBarberos = liquidacionDia.reduce((a, b) => a + b.pagoBarbero, 0)
+        const totalDiaAdmin    = liquidacionDia.reduce((a, b) => a + b.gananciaAdmin, 0)
+        const fechaLabel = new Date(fecha + 'T00:00:00').toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })
+        const esHoy = fecha === new Date().toISOString().slice(0, 10)
 
-        {/* Totales */}
-        <div className="mb-3 grid grid-cols-1 xl:grid-cols-2 gap-3 max-w-2xl">
-          <div className="bg-amber-50 border border-amber-100 rounded-xl p-4 flex items-center gap-3">
-            <div className="w-9 h-9 bg-amber-500 rounded-xl flex items-center justify-center shrink-0">
-              <Wallet size={18} className="text-white" />
-            </div>
-            <div>
-              <p className="text-xs text-amber-700 font-medium">A pagar a barberos ({pctBarberoLabel})</p>
-              <p className="text-lg font-bold text-amber-800">${fmt(totalBarberos)}</p>
-            </div>
-          </div>
-          <div className="bg-green-50 border border-green-100 rounded-xl p-4 flex items-center gap-3">
-            <div className="w-9 h-9 bg-green-600 rounded-xl flex items-center justify-center shrink-0">
-              <BadgeDollarSign size={18} className="text-white" />
-            </div>
-            <div>
-              <p className="text-xs text-green-700 font-medium">Ganancia del dueño ({pctAdminLabel})</p>
-              <p className="text-lg font-bold text-green-800">${fmt(totalAdmin)}</p>
-            </div>
-          </div>
-        </div>
+        function prevDay() { const d = new Date(fecha + 'T00:00:00'); d.setDate(d.getDate() - 1); setFecha(d.toISOString().slice(0, 10)) }
+        function nextDay() { const d = new Date(fecha + 'T00:00:00'); d.setDate(d.getDate() + 1); setFecha(d.toISOString().slice(0, 10)) }
 
-        <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
-          <table className="w-full text-sm">
-            <thead className="bg-slate-50 text-slate-500 text-xs uppercase">
-              <tr>
-                <th className="px-4 py-3 text-left">Barbero</th>
-                <th className="px-4 py-3 text-right">Citas</th>
-                <th className="px-4 py-3 text-right">Total Servicios</th>
-                <th className="px-4 py-3 text-right">Comisión barbero</th>
-                <th className="px-4 py-3 text-right">Ganancia dueño</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {comisiones.length === 0 && (
-                <tr>
-                  <td colSpan={5} className="text-center text-slate-400 py-8">
-                    No hay citas completadas en {mes}
-                  </td>
-                </tr>
-              )}
-              {comisiones.map(b => {
-                const svcs    = serviciosPorBarbero[b.barbero] || {}
-                const expanded = expandedBarbero === b.id
-                return (
-                  <React.Fragment key={b.id}>
-                    <tr
-                      className="hover:bg-slate-50 cursor-pointer select-none"
-                      onClick={() => setExpandedBarbero(expanded ? null : b.id)}
-                    >
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2">
-                          <div className="w-7 h-7 bg-primary-100 text-primary-600 rounded-full flex items-center justify-center text-xs font-bold shrink-0">
-                            {b.barbero.charAt(0)}
-                          </div>
-                          <span className="font-medium text-slate-800">{b.barbero}</span>
-                          <span className="text-slate-300 text-xs ml-1">{expanded ? '▲' : '▼'}</span>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 text-right text-slate-600">{b.citas_completadas}</td>
-                      <td className="px-4 py-3 text-right text-slate-700">${fmt(b.total_ventas)}</td>
-                      <td className="px-4 py-3 text-right font-semibold text-amber-600">
-                        ${fmt(b.pago_barbero)}
-                        <span className="ml-1 text-xs text-slate-400">({b.pct_barbero}%)</span>
-                      </td>
-                      <td className="px-4 py-3 text-right font-semibold text-green-600">
-                        ${fmt(b.ganancia_admin)}
-                        <span className="ml-1 text-xs text-slate-400">({100 - b.pct_barbero}%)</span>
+        return (
+          <div>
+            {/* Header con calendario */}
+            <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+              <h2 className="text-base font-bold text-slate-700">
+                Liquidación del día
+                <span className="ml-2 text-xs font-normal text-slate-400 capitalize">{fechaLabel}</span>
+              </h2>
+              <div className="flex items-center gap-1.5">
+                <button onClick={prevDay}
+                  className="w-8 h-8 flex items-center justify-center border border-slate-200 rounded-lg hover:bg-slate-50 text-slate-500 text-lg leading-none">‹</button>
+                <input type="date" value={fecha} onChange={e => setFecha(e.target.value)}
+                  className="border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400" />
+                <button onClick={nextDay}
+                  className="w-8 h-8 flex items-center justify-center border border-slate-200 rounded-lg hover:bg-slate-50 text-slate-500 text-lg leading-none">›</button>
+                {!esHoy && (
+                  <button onClick={() => setFecha(new Date().toISOString().slice(0, 10))}
+                    className="text-xs px-2.5 py-1.5 border border-primary-300 text-primary-600 rounded-lg hover:bg-primary-50 transition">
+                    Hoy
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Totales del día */}
+            <div className="mb-3 grid grid-cols-1 xl:grid-cols-2 gap-3 max-w-2xl">
+              <div className="bg-amber-50 border border-amber-100 rounded-xl p-4 flex items-center gap-3">
+                <div className="w-9 h-9 bg-amber-500 rounded-xl flex items-center justify-center shrink-0">
+                  <Wallet size={18} className="text-white" />
+                </div>
+                <div>
+                  <p className="text-xs text-amber-700 font-medium">A pagar a barberos</p>
+                  <p className="text-lg font-bold text-amber-800">${fmt(totalDiaBarberos)}</p>
+                </div>
+              </div>
+              <div className="bg-green-50 border border-green-100 rounded-xl p-4 flex items-center gap-3">
+                <div className="w-9 h-9 bg-green-600 rounded-xl flex items-center justify-center shrink-0">
+                  <BadgeDollarSign size={18} className="text-white" />
+                </div>
+                <div>
+                  <p className="text-xs text-green-700 font-medium">Tu ganancia del día</p>
+                  <p className="text-lg font-bold text-green-800">${fmt(totalDiaAdmin)}</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
+              <table className="w-full text-sm">
+                <thead className="bg-slate-50 text-slate-500 text-xs uppercase">
+                  <tr>
+                    <th className="px-4 py-3 text-left">Barbero</th>
+                    <th className="px-4 py-3 text-right">Citas</th>
+                    <th className="px-4 py-3 text-right">Total Servicios</th>
+                    <th className="px-4 py-3 text-right">Comisión barbero</th>
+                    <th className="px-4 py-3 text-right">Ganancia dueño</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {liquidacionDia.length === 0 && (
+                    <tr>
+                      <td colSpan={5} className="text-center text-slate-400 py-8">
+                        No hay citas completadas el <span className="capitalize">{fechaLabel}</span>
                       </td>
                     </tr>
-                    {expanded && (
-                      <tr>
-                        <td colSpan={5} className="px-0 py-0">
-                          <div className="px-12 py-3 bg-slate-50 border-t border-slate-100">
-                            {Object.keys(svcs).length === 0 ? (
-                              <p className="text-xs text-slate-400 italic">Sin servicios registrados este mes</p>
-                            ) : (
-                              <div className="flex flex-wrap gap-2">
-                                {Object.entries(svcs)
-                                  .sort((a, b) => b[1] - a[1])
-                                  .map(([svc, count]) => (
-                                    <span key={svc} className="inline-flex items-center gap-1 bg-white border border-slate-200 rounded-lg px-3 py-1 text-xs font-medium text-slate-700 shadow-sm">
-                                      {svc}
-                                      <span className="bg-primary-100 text-primary-700 rounded-full px-1.5 py-0.5 font-bold text-xs ml-1">×{count}</span>
-                                    </span>
-                                  ))}
+                  )}
+                  {liquidacionDia.map(b => {
+                    const expanded = expandedBarbero === b.nombre
+                    return (
+                      <React.Fragment key={b.nombre}>
+                        <tr className="hover:bg-slate-50 cursor-pointer select-none"
+                          onClick={() => setExpandedBarbero(expanded ? null : b.nombre)}>
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-2">
+                              <div className="w-7 h-7 bg-primary-100 text-primary-600 rounded-full flex items-center justify-center text-xs font-bold shrink-0">
+                                {b.nombre.charAt(0)}
                               </div>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    )}
-                  </React.Fragment>
-                )
-              })}
-              {comisiones.length > 0 && (
-                <tr className="bg-slate-50 font-bold text-sm">
-                  <td className="px-4 py-3 text-slate-700">Total</td>
-                  <td className="px-4 py-3 text-right text-slate-700">
-                    {comisiones.reduce((a,b)=>a+Number(b.citas_completadas||0),0)}
-                  </td>
-                  <td className="px-4 py-3 text-right text-slate-700">${fmt(ingresosMes)}</td>
-                  <td className="px-4 py-3 text-right text-amber-600">${fmt(totalBarberos)}</td>
-                  <td className="px-4 py-3 text-right text-green-600">${fmt(totalAdmin)}</td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+                              <span className="font-medium text-slate-800">{b.nombre}</span>
+                              <span className="text-slate-300 text-xs ml-1">{expanded ? '▲' : '▼'}</span>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 text-right text-slate-600">{b.citas}</td>
+                          <td className="px-4 py-3 text-right text-slate-700">${fmt(b.total)}</td>
+                          <td className="px-4 py-3 text-right font-semibold text-amber-600">
+                            ${fmt(b.pagoBarbero)}
+                            <span className="ml-1 text-xs text-slate-400">({b.pct}%)</span>
+                          </td>
+                          <td className="px-4 py-3 text-right font-semibold text-green-600">
+                            ${fmt(b.gananciaAdmin)}
+                            <span className="ml-1 text-xs text-slate-400">({100 - b.pct}%)</span>
+                          </td>
+                        </tr>
+                        {expanded && (
+                          <tr>
+                            <td colSpan={5} className="px-0 py-0">
+                              <div className="px-12 py-3 bg-slate-50 border-t border-slate-100">
+                                {Object.keys(b.svcs).length === 0 ? (
+                                  <p className="text-xs text-slate-400 italic">Sin servicios</p>
+                                ) : (
+                                  <div className="flex flex-wrap gap-2">
+                                    {Object.entries(b.svcs).sort((a, z) => z[1] - a[1]).map(([svc, count]) => (
+                                      <span key={svc} className="inline-flex items-center gap-1 bg-white border border-slate-200 rounded-lg px-3 py-1 text-xs font-medium text-slate-700 shadow-sm">
+                                        {svc}
+                                        <span className="bg-primary-100 text-primary-700 rounded-full px-1.5 py-0.5 font-bold text-xs ml-1">×{count}</span>
+                                      </span>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </React.Fragment>
+                    )
+                  })}
+                  {liquidacionDia.length > 0 && (
+                    <tr className="bg-slate-50 font-bold text-sm">
+                      <td className="px-4 py-3 text-slate-700">Total</td>
+                      <td className="px-4 py-3 text-right text-slate-700">{liquidacionDia.reduce((a, b) => a + b.citas, 0)}</td>
+                      <td className="px-4 py-3 text-right text-slate-700">${fmt(totalDiaVentas)}</td>
+                      <td className="px-4 py-3 text-right text-amber-600">${fmt(totalDiaBarberos)}</td>
+                      <td className="px-4 py-3 text-right text-green-600">${fmt(totalDiaAdmin)}</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )
+      })()}
 
       {/* Gráficas */}
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">

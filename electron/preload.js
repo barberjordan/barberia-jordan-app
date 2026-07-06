@@ -85,6 +85,24 @@ contextBridge.exposeInMainWorld('api', {
     setConfig: (id, pct)   => ipcRenderer.invoke('comisiones:setConfig', id, pct),
   },
 
+  // ---- GASTOS ----
+  gastos: {
+    getAll:     ()          => ipcRenderer.invoke('gastos:getAll'),
+    getByFecha: (fecha)     => ipcRenderer.invoke('gastos:getByFecha', fecha),
+    getByMes:   (mes)       => ipcRenderer.invoke('gastos:getByMes', mes),
+    create:     (data)      => ipcRenderer.invoke('gastos:create', data),
+    update:     (id, data)  => ipcRenderer.invoke('gastos:update', id, data),
+    delete:     (id)        => ipcRenderer.invoke('gastos:delete', id),
+  },
+
+  // ---- CAJA MOVIMIENTOS ----
+  caja: {
+    getAll:     ()          => ipcRenderer.invoke('caja:getAll'),
+    getByFecha: (fecha)     => ipcRenderer.invoke('caja:getByFecha', fecha),
+    create:     (data)      => ipcRenderer.invoke('caja:create', data),
+    delete:     (id)        => ipcRenderer.invoke('caja:delete', id),
+  },
+
   // ---- APP ----
   app: {
     getVersion: () => ipcRenderer.invoke('app:getVersion'),

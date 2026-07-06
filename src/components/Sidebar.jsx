@@ -2,13 +2,16 @@ import React from 'react'
 import { NavLink } from 'react-router-dom'
 import {
   LayoutDashboard, Users, UserCheck, Scissors,
-  Calendar, BarChart2, Settings, LogOut, SlidersHorizontal
+  Calendar, BarChart2, Settings, LogOut, SlidersHorizontal,
+  Vault, Receipt
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 
 const links = [
   { to: '/dashboard',     icon: LayoutDashboard,   label: 'Dashboard' },
   { to: '/citas',         icon: Calendar,          label: 'Citas' },
+  { to: '/caja',          icon: Vault,             label: 'Caja' },
+  { to: '/gastos',        icon: Receipt,           label: 'Gastos' },
   { to: '/clientes',      icon: Users,             label: 'Clientes' },
   { to: '/barberos',      icon: UserCheck,         label: 'Barberos' },
   { to: '/servicios',     icon: Scissors,          label: 'Servicios' },

@@ -182,6 +182,31 @@ async function initDatabase() {
       updated_at         TEXT    DEFAULT (datetime('now'))
     )
   `)
+  db.run(`
+    CREATE TABLE IF NOT EXISTS gastos (
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      nombre     TEXT NOT NULL,
+      categoria  TEXT DEFAULT 'otro',
+      monto      REAL NOT NULL DEFAULT 0,
+      frecuencia TEXT DEFAULT 'mensual',
+      fecha      TEXT,
+      notas      TEXT,
+      activo     INTEGER DEFAULT 1,
+      created_at TEXT DEFAULT (datetime('now'))
+    )
+  `)
+  db.run(`
+    CREATE TABLE IF NOT EXISTS caja_movimientos (
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      tipo       TEXT NOT NULL,
+      concepto   TEXT NOT NULL,
+      monto      REAL NOT NULL DEFAULT 0,
+      fecha      TEXT NOT NULL,
+      hora       TEXT,
+      notas      TEXT,
+      created_at TEXT DEFAULT (datetime('now'))
+    )
+  `)
 
   // Migraciones
   try { db.run('ALTER TABLE usuarios ADD COLUMN barbero_id INTEGER') } catch {}
@@ -786,6 +811,43 @@ const comisionesConfig = {
   },
 }
 
+// ==================== GASTOS ====================
+
+const gastos = {
+  getAll: () => qAll('SELECT * FROM gastos WHERE activo=1 ORDER BY fecha DESC, created_at DESC'),
+  getByFecha: (fecha) => qAll('SELECT * FROM gastos WHERE activo=1 AND fecha=?', [fecha]),
+  getByMes: (mes) => qAll("SELECT * FROM gastos WHERE activo=1 AND strftime('%Y-%m', fecha)=?", [mes]),
+  create: (d) => {
+    qRun(
+      'INSERT INTO gastos (nombre, categoria, monto, frecuencia, fecha, notas) VALUES (?,?,?,?,?,?)',
+      [d.nombre, d.categoria || 'otro', Number(d.monto) || 0, d.frecuencia || 'mensual', d.fecha || null, d.notas || null]
+    )
+    return lastId()
+  },
+  update: (id, d) => {
+    qRun(
+      'UPDATE gastos SET nombre=?, categoria=?, monto=?, frecuencia=?, fecha=?, notas=? WHERE id=?',
+      [d.nombre, d.categoria || 'otro', Number(d.monto) || 0, d.frecuencia || 'mensual', d.fecha || null, d.notas || null, id]
+    )
+  },
+  delete: (id) => qRun('DELETE FROM gastos WHERE id=?', [id]),
+}
+
+// ==================== CAJA MOVIMIENTOS ====================
+
+const cajaMovimientos = {
+  getAll: () => qAll('SELECT * FROM caja_movimientos ORDER BY fecha DESC, hora DESC'),
+  getByFecha: (fecha) => qAll('SELECT * FROM caja_movimientos WHERE fecha=? ORDER BY hora', [fecha]),
+  create: (d) => {
+    qRun(
+      'INSERT INTO caja_movimientos (tipo, concepto, monto, fecha, hora, notas) VALUES (?,?,?,?,?,?)',
+      [d.tipo, d.concepto, Number(d.monto) || 0, d.fecha, d.hora || null, d.notas || null]
+    )
+    return lastId()
+  },
+  delete: (id) => qRun('DELETE FROM caja_movimientos WHERE id=?', [id]),
+}
+
 module.exports = {
   initDatabase,
   loginLocal,
@@ -798,4 +860,6 @@ module.exports = {
   config,
   comisionesConfig,
   syncQueue,
+  gastos,
+  cajaMovimientos,
 }

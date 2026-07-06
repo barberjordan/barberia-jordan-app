@@ -2,7 +2,7 @@ const { app, BrowserWindow, ipcMain, shell, dialog } = require('electron')
 const path = require('path')
 const XLSX = require('xlsx')
 const { autoUpdater } = require('electron-updater')
-const { initDatabase, loginLocal, usuarios, barberos, clientes, servicios, citas, dashboard, config, comisionesConfig } = require('./database')
+const { initDatabase, loginLocal, usuarios, barberos, clientes, servicios, citas, dashboard, config, comisionesConfig, gastos, cajaMovimientos } = require('./database')
 const sync = require('./sync')
 
 const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged
@@ -268,3 +268,17 @@ ipcMain.handle('dialog:confirm', (_e, message) => {
     cancelId: 0,
   }) === 1
 })
+
+// GASTOS
+ipcMain.handle('gastos:getAll',     ()          => gastos.getAll())
+ipcMain.handle('gastos:getByFecha', (_e, fecha) => gastos.getByFecha(fecha))
+ipcMain.handle('gastos:getByMes',   (_e, mes)   => gastos.getByMes(mes))
+ipcMain.handle('gastos:create',     (_e, data)  => gastos.create(data))
+ipcMain.handle('gastos:update',     (_e, id, d) => { gastos.update(id, d); return true })
+ipcMain.handle('gastos:delete',     (_e, id)    => { gastos.delete(id); return true })
+
+// CAJA MOVIMIENTOS
+ipcMain.handle('caja:getAll',       ()          => cajaMovimientos.getAll())
+ipcMain.handle('caja:getByFecha',   (_e, fecha) => cajaMovimientos.getByFecha(fecha))
+ipcMain.handle('caja:create',       (_e, data)  => cajaMovimientos.create(data))
+ipcMain.handle('caja:delete',       (_e, id)    => { cajaMovimientos.delete(id); return true })
