@@ -322,13 +322,10 @@ const usuarios = {
           [s.nombre, s.rol||'empleado', s.activo??1, s.updated_at||now(), 'synced', s.id, byEmail.id])
         continue
       }
-      // 3. Insertar nuevo — resolver barbero local desde server_id
-      const localBarbero = s.barbero_id ? qGet('SELECT id FROM barberos WHERE server_id=?', [s.barbero_id]) : null
-      qRun(
-        'INSERT INTO usuarios (nombre,email,password,rol,activo,barbero_id,created_at,updated_at,server_id,sync_status) VALUES (?,?,?,?,?,?,?,?,?,?)',
-        [s.nombre, s.email, '*', s.rol||'empleado', s.activo??1,
-         localBarbero?.id||null, s.created_at||now(), s.updated_at||now(), s.id, 'synced']
-      )
+      // 3. NO insertar usuarios nuevos desde el servidor — solo actualizamos los que ya existen localmente
+      // (evita que usuarios creados en el servidor aparezcan como fantasmas en la app)
+      console.log(`⚠️ Usuario del servidor ignorado (no existe localmente): ${s.nombre} <${s.email}>`)
+      continue
     }
   },
 }
@@ -387,9 +384,9 @@ const barberos = {
             [s.nombre, s.telefono||null, s.email||null, s.especialidad||null, s.activo??1, s.updated_at||now(), 'synced', s.id, existing.id])
           localId = existing.id
         } else {
-          qRun('INSERT INTO barberos (nombre,telefono,email,especialidad,activo,created_at,updated_at,server_id,sync_status) VALUES (?,?,?,?,?,?,?,?,?)',
-            [s.nombre, s.telefono||null, s.email||null, s.especialidad||null, s.activo??1, s.created_at||now(), s.updated_at||now(), s.id, 'synced'])
-          localId = lastId()
+          // NO insertar barberos nuevos desde el servidor — evita fantasmas
+          console.log(`⚠️ Barbero del servidor ignorado (no existe localmente): ${s.nombre}`)
+          continue
         }
       }
 
