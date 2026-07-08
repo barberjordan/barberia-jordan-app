@@ -217,6 +217,10 @@ async function initDatabase() {
   try { db.run('ALTER TABLE citas ADD COLUMN _cliente_telefono TEXT') } catch {}
   // Multi-servicio
   try { db.run('ALTER TABLE citas ADD COLUMN servicios_ids TEXT') } catch {}
+  // Icono de servicio
+  try { db.run('ALTER TABLE servicios ADD COLUMN icono TEXT DEFAULT NULL') } catch {}
+  // Caja movimientos: método de pago
+  try { db.run("ALTER TABLE caja_movimientos ADD COLUMN metodo TEXT DEFAULT 'efectivo'") } catch {}
 
   // Usuario admin por defecto
   const admin = qGet("SELECT id FROM usuarios WHERE email = 'admin@barberia.com'")
@@ -463,8 +467,8 @@ const servicios = {
   getById: (id) => qGet('SELECT * FROM servicios WHERE id=?', [id]),
   create: (d) => {
     qRun(
-      'INSERT INTO servicios (nombre,descripcion,precio,duracion,activo,created_at,updated_at) VALUES (?,?,?,?,?,?,?)',
-      [d.nombre, d.descripcion || null, d.precio || 0, d.duracion || 30, 1, now(), now()]
+      'INSERT INTO servicios (nombre,descripcion,precio,duracion,activo,icono,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?)',
+      [d.nombre, d.descripcion || null, d.precio || 0, d.duracion || 30, 1, d.icono || null, now(), now()]
     )
     const id = lastId()
     encolarSync('servicios', 'create', { ...d, local_id: id }, id)
@@ -472,8 +476,8 @@ const servicios = {
   },
   update: (id, d) => {
     qRun(
-      'UPDATE servicios SET nombre=?,descripcion=?,precio=?,duracion=?,activo=?,updated_at=?,sync_status=? WHERE id=?',
-      [d.nombre, d.descripcion || null, d.precio || 0, d.duracion || 30, d.activo ?? 1, now(), 'pending', id]
+      'UPDATE servicios SET nombre=?,descripcion=?,precio=?,duracion=?,activo=?,icono=?,updated_at=?,sync_status=? WHERE id=?',
+      [d.nombre, d.descripcion || null, d.precio || 0, d.duracion || 30, d.activo ?? 1, d.icono || null, now(), 'pending', id]
     )
     encolarSync('servicios', 'update', { ...d, local_id: id }, id)
   },
@@ -492,17 +496,17 @@ const servicios = {
     for (const s of serverItems) {
       const byServerId = s.id ? qGet('SELECT id FROM servicios WHERE server_id=?', [s.id]) : null
       if (byServerId) {
-        qRun('UPDATE servicios SET nombre=?,descripcion=?,precio=?,duracion=?,activo=?,updated_at=?,sync_status=? WHERE id=?',
-          [s.nombre, s.descripcion||null, s.precio||0, s.duracion||30, s.activo??1, s.updated_at||now(), 'synced', byServerId.id])
+        qRun('UPDATE servicios SET nombre=?,descripcion=?,precio=?,duracion=?,activo=?,icono=?,updated_at=?,sync_status=? WHERE id=?',
+          [s.nombre, s.descripcion||null, s.precio||0, s.duracion||30, s.activo??1, s.icono||null, s.updated_at||now(), 'synced', byServerId.id])
         continue
       }
       const byNombre = s.nombre ? qGet('SELECT id FROM servicios WHERE nombre=? COLLATE NOCASE', [s.nombre]) : null
       if (byNombre) {
-        qRun('UPDATE servicios SET nombre=?,descripcion=?,precio=?,duracion=?,activo=?,updated_at=?,sync_status=?,server_id=? WHERE id=?',
-          [s.nombre, s.descripcion||null, s.precio||0, s.duracion||30, s.activo??1, s.updated_at||now(), 'synced', s.id, byNombre.id])
+        qRun('UPDATE servicios SET nombre=?,descripcion=?,precio=?,duracion=?,activo=?,icono=?,updated_at=?,sync_status=?,server_id=? WHERE id=?',
+          [s.nombre, s.descripcion||null, s.precio||0, s.duracion||30, s.activo??1, s.icono||null, s.updated_at||now(), 'synced', s.id, byNombre.id])
       } else {
-        qRun('INSERT INTO servicios (nombre,descripcion,precio,duracion,activo,created_at,updated_at,server_id,sync_status) VALUES (?,?,?,?,?,?,?,?,?)',
-          [s.nombre, s.descripcion||null, s.precio||0, s.duracion||30, s.activo??1, s.created_at||now(), s.updated_at||now(), s.id, 'synced'])
+        qRun('INSERT INTO servicios (nombre,descripcion,precio,duracion,activo,icono,created_at,updated_at,server_id,sync_status) VALUES (?,?,?,?,?,?,?,?,?,?)',
+          [s.nombre, s.descripcion||null, s.precio||0, s.duracion||30, s.activo??1, s.icono||null, s.created_at||now(), s.updated_at||now(), s.id, 'synced'])
       }
     }
   },
@@ -837,8 +841,8 @@ const cajaMovimientos = {
   getByFecha: (fecha) => qAll('SELECT * FROM caja_movimientos WHERE fecha=? ORDER BY hora', [fecha]),
   create: (d) => {
     qRun(
-      'INSERT INTO caja_movimientos (tipo, concepto, monto, fecha, hora, notas) VALUES (?,?,?,?,?,?)',
-      [d.tipo, d.concepto, Number(d.monto) || 0, d.fecha, d.hora || null, d.notas || null]
+      'INSERT INTO caja_movimientos (tipo, concepto, monto, fecha, hora, notas, metodo) VALUES (?,?,?,?,?,?,?)',
+      [d.tipo, d.concepto, Number(d.monto) || 0, d.fecha, d.hora || null, d.notas || null, d.metodo || 'efectivo']
     )
     return lastId()
   },

@@ -2,8 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ==================== TEMAS DE COLOR ==================== */
-/* Naranja (default) */
+/* ==================== ACENTOS DE COLOR ==================== */
 :root, [data-theme="naranja"] {
   --p-50:  255 247 237;
   --p-100: 255 237 213;
@@ -13,9 +12,8 @@
   --p-500: 249 115 22;
   --p-600: 234 88 12;
   --p-700: 194 65 12;
+  --p-800: 154 52 18;
 }
-
-/* Azul */
 [data-theme="azul"] {
   --p-50:  239 246 255;
   --p-100: 219 234 254;
@@ -25,9 +23,8 @@
   --p-500: 59 130 246;
   --p-600: 37 99 235;
   --p-700: 29 78 216;
+  --p-800: 30 64 175;
 }
-
-/* Verde */
 [data-theme="verde"] {
   --p-50:  236 253 245;
   --p-100: 209 250 229;
@@ -37,9 +34,8 @@
   --p-500: 16 185 129;
   --p-600: 5 150 105;
   --p-700: 4 120 87;
+  --p-800: 6 95 70;
 }
-
-/* Morado */
 [data-theme="morado"] {
   --p-50:  245 243 255;
   --p-100: 237 233 254;
@@ -49,9 +45,8 @@
   --p-500: 139 92 246;
   --p-600: 124 58 237;
   --p-700: 109 40 217;
+  --p-800: 91 33 182;
 }
-
-/* Rosa */
 [data-theme="rosa"] {
   --p-50:  255 241 242;
   --p-100: 255 228 230;
@@ -61,9 +56,8 @@
   --p-500: 244 63 94;
   --p-600: 225 29 72;
   --p-700: 190 18 60;
+  --p-800: 159 18 57;
 }
-
-/* Rojo */
 [data-theme="rojo"] {
   --p-50:  254 242 242;
   --p-100: 254 226 226;
@@ -73,7 +67,217 @@
   --p-500: 239 68 68;
   --p-600: 220 38 38;
   --p-700: 185 28 28;
+  --p-800: 153 27 27;
 }
+[data-theme="cian"] {
+  --p-50:  236 254 255;
+  --p-100: 207 250 254;
+  --p-200: 165 243 252;
+  --p-300: 103 232 249;
+  --p-400: 34 211 238;
+  --p-500: 6 182 212;
+  --p-600: 8 145 178;
+  --p-700: 14 116 144;
+  --p-800: 21 94 117;
+}
+[data-theme="ambar"] {
+  --p-50:  255 251 235;
+  --p-100: 254 243 199;
+  --p-200: 253 230 138;
+  --p-300: 252 211 77;
+  --p-400: 251 191 36;
+  --p-500: 245 158 11;
+  --p-600: 217 119 6;
+  --p-700: 180 83 9;
+  --p-800: 146 64 14;
+}
+
+/* ==================== VARIABLES DE TEMA ESTRUCTURAL ==================== */
+:root {
+  --sidebar-bg:      #0f172a;
+  --sidebar-text:    #94a3b8;
+  --sidebar-hover-bg:#1e293b;
+  --content-bg:      #f8fafc;
+  --card-bg:         #ffffff;
+  --card-border:     #f1f5f9;
+  --navbar-bg:       #ffffff;
+  --navbar-border:   #e2e8f0;
+  --text-primary:    #1e293b;
+  --text-secondary:  #64748b;
+  --text-muted:      #94a3b8;
+  --input-bg:        #ffffff;
+  --input-border:    #e2e8f0;
+  --table-header-bg: #f8fafc;
+}
+
+/* ==================== SIDEBAR DINÁMICO ==================== */
+.sidebar-link {
+  color: var(--sidebar-text);
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+.sidebar-link:hover {
+  background-color: var(--sidebar-hover-bg);
+  color: #ffffff;
+}
+.sidebar-link.active {
+  background-color: rgb(var(--p-500));
+  color: #ffffff;
+}
+
+/* ==================== MODO OSCURO ==================== */
+
+/* ── Fondos principales ── */
+[data-dark="true"] .bg-white {
+  background-color: var(--card-bg) !important;
+  color: var(--text-primary) !important;
+}
+[data-dark="true"] .bg-slate-50           { background-color: var(--table-header-bg) !important; }
+[data-dark="true"] .bg-slate-100          { background-color: var(--sidebar-hover-bg) !important; }
+[data-dark="true"] .bg-slate-200          { background-color: var(--card-border) !important; }
+
+/* ── Selección de filas y alertas ── */
+[data-dark="true"] .bg-red-50             { background-color: rgba(239,68,68,0.12) !important; }
+[data-dark="true"] .border-red-200        { border-color: rgba(239,68,68,0.3) !important; }
+[data-dark="true"] .bg-yellow-50          { background-color: rgba(234,179,8,0.12) !important; }
+[data-dark="true"] .bg-green-50           { background-color: rgba(16,185,129,0.12) !important; }
+[data-dark="true"] .hover\:bg-green-100:hover { background-color: rgba(16,185,129,0.2) !important; }
+[data-dark="true"] .bg-blue-50            { background-color: rgba(59,130,246,0.12) !important; }
+[data-dark="true"] .bg-amber-50           { background-color: rgba(245,158,11,0.12) !important; }
+
+/* Fila seleccionada y elementos con tono primary-50 */
+[data-dark="true"] .bg-primary-50           { background-color: rgb(var(--p-500) / 0.14) !important; }
+[data-dark="true"] .hover\:bg-primary-50:hover { background-color: rgb(var(--p-500) / 0.14) !important; }
+[data-dark="true"] .border-primary-100      { border-color: rgb(var(--p-500) / 0.3) !important; }
+
+/* ── Textos ── */
+[data-dark="true"] .text-slate-800,
+[data-dark="true"] .text-slate-700        { color: var(--text-primary) !important; }
+[data-dark="true"] .text-slate-600,
+[data-dark="true"] .text-slate-500        { color: var(--text-secondary) !important; }
+[data-dark="true"] .text-slate-400,
+[data-dark="true"] .text-slate-300        { color: var(--text-muted) !important; }
+
+/* ── Bordes ── */
+[data-dark="true"] .border-slate-100,
+[data-dark="true"] .border-slate-200      { border-color: var(--card-border) !important; }
+[data-dark="true"] .divide-y > * + *      { border-color: var(--card-border) !important; }
+
+/* ── Inputs, selects, textareas ── */
+[data-dark="true"] input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="range"]),
+[data-dark="true"] select,
+[data-dark="true"] textarea {
+  background-color: var(--input-bg) !important;
+  border-color:     var(--input-border) !important;
+  color:            var(--text-primary) !important;
+  color-scheme:     dark; /* arregla el date picker nativo en Chromium */
+}
+[data-dark="true"] input::placeholder,
+[data-dark="true"] textarea::placeholder  { color: var(--text-muted) !important; }
+
+/* ── Hover states ── */
+[data-dark="true"] .hover\:bg-slate-50:hover   { background-color: var(--sidebar-hover-bg) !important; }
+[data-dark="true"] .hover\:bg-slate-100:hover  { background-color: var(--sidebar-hover-bg) !important; }
+[data-dark="true"] .hover\:bg-slate-200:hover  { background-color: var(--card-border) !important; }
+
+/* ── Sombras ── */
+[data-dark="true"] .shadow-sm  { box-shadow: 0 1px 4px rgba(0,0,0,0.5) !important; }
+[data-dark="true"] .shadow-xl  { box-shadow: 0 8px 32px rgba(0,0,0,0.6) !important; }
+
+/* ── Fondos de color (tarjetas summary, badges) ── */
+/* -50 → semitransparente sobre fondo oscuro */
+[data-dark="true"] .bg-green-50    { background-color: rgba(16,185,129,0.12) !important; }
+[data-dark="true"] .bg-blue-50     { background-color: rgba(59,130,246,0.12) !important; }
+[data-dark="true"] .bg-red-50      { background-color: rgba(239,68,68,0.12) !important; }
+[data-dark="true"] .bg-purple-50   { background-color: rgba(139,92,246,0.12) !important; }
+[data-dark="true"] .bg-amber-50    { background-color: rgba(245,158,11,0.12) !important; }
+[data-dark="true"] .bg-orange-50   { background-color: rgba(249,115,22,0.12) !important; }
+[data-dark="true"] .bg-indigo-50   { background-color: rgba(99,102,241,0.12) !important; }
+[data-dark="true"] .bg-yellow-50   { background-color: rgba(234,179,8,0.12) !important; }
+[data-dark="true"] .bg-cyan-50     { background-color: rgba(6,182,212,0.12) !important; }
+[data-dark="true"] .bg-pink-50     { background-color: rgba(236,72,153,0.12) !important; }
+[data-dark="true"] .bg-slate-50    { background-color: var(--table-header-bg) !important; }
+
+/* -100 → badges de estado (completada, pendiente, etc.) */
+[data-dark="true"] .bg-green-100   { background-color: rgba(16,185,129,0.18) !important; }
+[data-dark="true"] .bg-blue-100    { background-color: rgba(59,130,246,0.18) !important; }
+[data-dark="true"] .bg-red-100     { background-color: rgba(239,68,68,0.18) !important; }
+[data-dark="true"] .bg-purple-100  { background-color: rgba(139,92,246,0.18) !important; }
+[data-dark="true"] .bg-amber-100   { background-color: rgba(245,158,11,0.18) !important; }
+[data-dark="true"] .bg-orange-100  { background-color: rgba(249,115,22,0.18) !important; }
+[data-dark="true"] .bg-indigo-100  { background-color: rgba(99,102,241,0.18) !important; }
+[data-dark="true"] .bg-yellow-100  { background-color: rgba(234,179,8,0.18) !important; }
+[data-dark="true"] .bg-cyan-100    { background-color: rgba(6,182,212,0.18) !important; }
+
+/* ── Bordes de color ── */
+[data-dark="true"] .border-green-100,
+[data-dark="true"] .border-green-200   { border-color: rgba(16,185,129,0.25) !important; }
+[data-dark="true"] .border-blue-100,
+[data-dark="true"] .border-blue-200    { border-color: rgba(59,130,246,0.25) !important; }
+[data-dark="true"] .border-red-100,
+[data-dark="true"] .border-red-200     { border-color: rgba(239,68,68,0.3) !important; }
+[data-dark="true"] .border-purple-100,
+[data-dark="true"] .border-purple-200  { border-color: rgba(139,92,246,0.25) !important; }
+[data-dark="true"] .border-amber-100,
+[data-dark="true"] .border-amber-200   { border-color: rgba(245,158,11,0.25) !important; }
+[data-dark="true"] .border-orange-100,
+[data-dark="true"] .border-orange-200  { border-color: rgba(249,115,22,0.25) !important; }
+[data-dark="true"] .border-indigo-100,
+[data-dark="true"] .border-indigo-200  { border-color: rgba(99,102,241,0.25) !important; }
+[data-dark="true"] .border-yellow-100  { border-color: rgba(234,179,8,0.25) !important; }
+[data-dark="true"] .border-cyan-100    { border-color: rgba(6,182,212,0.25) !important; }
+
+/* ── Textos de color: aclarar para fondos oscuros ── */
+[data-dark="true"] .text-green-800,
+[data-dark="true"] .text-green-700,
+[data-dark="true"] .text-green-600  { color: #4ade80 !important; }
+
+[data-dark="true"] .text-blue-800,
+[data-dark="true"] .text-blue-700,
+[data-dark="true"] .text-blue-600   { color: #60a5fa !important; }
+
+[data-dark="true"] .text-red-800,
+[data-dark="true"] .text-red-700,
+[data-dark="true"] .text-red-600    { color: #f87171 !important; }
+
+[data-dark="true"] .text-purple-800,
+[data-dark="true"] .text-purple-700,
+[data-dark="true"] .text-purple-600 { color: #c084fc !important; }
+
+[data-dark="true"] .text-amber-800,
+[data-dark="true"] .text-amber-700,
+[data-dark="true"] .text-amber-600  { color: #fcd34d !important; }
+
+[data-dark="true"] .text-orange-800,
+[data-dark="true"] .text-orange-700,
+[data-dark="true"] .text-orange-600 { color: #fb923c !important; }
+
+[data-dark="true"] .text-indigo-800,
+[data-dark="true"] .text-indigo-700,
+[data-dark="true"] .text-indigo-600 { color: #818cf8 !important; }
+
+[data-dark="true"] .text-yellow-800,
+[data-dark="true"] .text-yellow-700,
+[data-dark="true"] .text-yellow-600 { color: #fbbf24 !important; }
+
+[data-dark="true"] .text-cyan-800,
+[data-dark="true"] .text-cyan-700,
+[data-dark="true"] .text-cyan-600   { color: #22d3ee !important; }
+
+/* ── Texto del color de acento en dark (aclarar) ── */
+[data-dark="true"] .text-primary-800 { color: rgb(var(--p-300)) !important; }
+[data-dark="true"] .text-primary-600,
+[data-dark="true"] .text-primary-700 { color: rgb(var(--p-400)) !important; }
+
+/* ── Botones outline con borde primary ── */
+[data-dark="true"] .border-primary-300 { border-color: rgb(var(--p-500) / 0.5) !important; }
+[data-dark="true"] .border-primary-400 { border-color: rgb(var(--p-500) / 0.7) !important; }
+
+/* ── ring en dark ── */
+[data-dark="true"] .ring-1 { --tw-ring-opacity: 0.4; }
+
+/* ── Scrollbar en dark mode ── */
+[data-dark="true"] ::-webkit-scrollbar-track { background: var(--table-header-bg); }
+[data-dark="true"] ::-webkit-scrollbar-thumb { background: var(--card-border); }
 
 /* ==================== BASE ==================== */
 * {

@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useMemo } from 'react'
-import { Plus, Pencil, Trash2, Zap, Droplets, Package, Home, Users, HelpCircle } from 'lucide-react'
+import { createPortal } from 'react-dom'
+import { Plus, Pencil, Trash2, Zap, Droplets, Package, Home, Users, HelpCircle, Wifi } from 'lucide-react'
 
 function fmt(n) {
   return Number(n || 0).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -8,6 +9,7 @@ function fmt(n) {
 const CATEGORIAS = [
   { value: 'luz',       label: 'Luz',       icon: Zap,        color: 'bg-yellow-100 text-yellow-700' },
   { value: 'agua',      label: 'Agua',      icon: Droplets,   color: 'bg-blue-100 text-blue-700' },
+  { value: 'wifi',      label: 'WiFi',      icon: Wifi,       color: 'bg-cyan-100 text-cyan-700' },
   { value: 'insumos',   label: 'Insumos',   icon: Package,    color: 'bg-orange-100 text-orange-700' },
   { value: 'alquiler',  label: 'Alquiler',  icon: Home,       color: 'bg-purple-100 text-purple-700' },
   { value: 'sueldo',    label: 'Sueldo',    icon: Users,      color: 'bg-green-100 text-green-700' },
@@ -224,9 +226,9 @@ export default function Gastos() {
         </table>
       </div>
 
-      {/* ==================== MODAL ==================== */}
-      {modalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+      {/* ==================== MODAL (portal al body para evitar clipping por overflow) ==================== */}
+      {modalOpen && createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
             <div className="px-6 py-4 border-b border-slate-100">
               <h2 className="font-bold text-slate-800 text-lg">
@@ -310,7 +312,8 @@ export default function Gastos() {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   )

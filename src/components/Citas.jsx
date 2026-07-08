@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react'
+import { createPortal } from 'react-dom'
 import { Plus, Pencil, Trash2, X, Calendar, Search, LayoutList, Users } from 'lucide-react'
 import { useSync } from '../context/SyncContext'
 
@@ -357,8 +358,8 @@ export default function Citas() {
       )}
 
       {/* Modal */}
-      {modal && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+      {modal && createPortal(
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-[9999]">
           <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-5">
               <h2 className="font-bold text-slate-800">{editId ? 'Editar cita' : 'Nueva cita'}</h2>
@@ -446,7 +447,8 @@ export default function Citas() {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   )

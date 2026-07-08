@@ -16,6 +16,7 @@ import Usuarios from './components/Usuarios'
 import Configuracion from './components/Configuracion'
 import Caja from './components/Caja'
 import Gastos from './components/Gastos'
+import Temas from './components/Temas'
 import NotificacionCita from './components/NotificacionCita'
 
 function AppInner() {
@@ -30,7 +31,7 @@ function AppInner() {
       {/* Banner de notificación de cita nueva — flota sobre toda la app */}
       <NotificacionCita notificaciones={notificaciones} onDismiss={dismissNotificacion} />
 
-      <div className="flex h-screen overflow-hidden bg-slate-50">
+      <div className="flex h-screen overflow-hidden" style={{ backgroundColor: 'var(--content-bg)' }}>
         <Sidebar open={sidebarOpen} />
         <div className="flex flex-col flex-1 overflow-hidden">
           <Navbar onToggleSidebar={() => setSidebarOpen(o => !o)} />
@@ -46,6 +47,7 @@ function AppInner() {
               <Route path="/gastos"     element={<Gastos />} />
               <Route path="/reportes"   element={<Reportes />} />
               <Route path="/usuarios"       element={<Usuarios />} />
+              <Route path="/temas"          element={<Temas />} />
               <Route path="/configuracion"  element={<Configuracion />} />
               <Route path="*"               element={<Navigate to="/dashboard" />} />
             </Routes>

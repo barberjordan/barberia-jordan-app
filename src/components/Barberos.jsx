@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { Plus, Pencil, Trash2, X } from 'lucide-react'
 
 const EMPTY = { nombre: '', telefono: '', email: '', especialidad: '', activo: 1 }
@@ -145,8 +146,8 @@ export default function Barberos() {
       </div>
 
       {/* Modal */}
-      {modal && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+      {modal && createPortal(
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-[9999]">
           <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-md mx-4">
             <div className="flex items-center justify-between mb-5">
               <h2 className="font-bold text-slate-800">{editId ? 'Editar barbero' : 'Nuevo barbero'}</h2>
@@ -192,7 +193,8 @@ export default function Barberos() {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   )
