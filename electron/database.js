@@ -494,16 +494,19 @@ const servicios = {
   },
   upsertFromServer: (serverItems) => {
     for (const s of serverItems) {
-      const byServerId = s.id ? qGet('SELECT id FROM servicios WHERE server_id=?', [s.id]) : null
+      const byServerId = s.id ? qGet('SELECT id,icono FROM servicios WHERE server_id=?', [s.id]) : null
       if (byServerId) {
+        // Preservar ícono local si el servidor no manda uno
+        const icono = s.icono || byServerId.icono || null
         qRun('UPDATE servicios SET nombre=?,descripcion=?,precio=?,duracion=?,activo=?,icono=?,updated_at=?,sync_status=? WHERE id=?',
-          [s.nombre, s.descripcion||null, s.precio||0, s.duracion||30, s.activo??1, s.icono||null, s.updated_at||now(), 'synced', byServerId.id])
+          [s.nombre, s.descripcion||null, s.precio||0, s.duracion||30, s.activo??1, icono, s.updated_at||now(), 'synced', byServerId.id])
         continue
       }
-      const byNombre = s.nombre ? qGet('SELECT id FROM servicios WHERE nombre=? COLLATE NOCASE', [s.nombre]) : null
+      const byNombre = s.nombre ? qGet('SELECT id,icono FROM servicios WHERE nombre=? COLLATE NOCASE', [s.nombre]) : null
       if (byNombre) {
+        const icono = s.icono || byNombre.icono || null
         qRun('UPDATE servicios SET nombre=?,descripcion=?,precio=?,duracion=?,activo=?,icono=?,updated_at=?,sync_status=?,server_id=? WHERE id=?',
-          [s.nombre, s.descripcion||null, s.precio||0, s.duracion||30, s.activo??1, s.icono||null, s.updated_at||now(), 'synced', s.id, byNombre.id])
+          [s.nombre, s.descripcion||null, s.precio||0, s.duracion||30, s.activo??1, icono, s.updated_at||now(), 'synced', s.id, byNombre.id])
       } else {
         qRun('INSERT INTO servicios (nombre,descripcion,precio,duracion,activo,icono,created_at,updated_at,server_id,sync_status) VALUES (?,?,?,?,?,?,?,?,?,?)',
           [s.nombre, s.descripcion||null, s.precio||0, s.duracion||30, s.activo??1, s.icono||null, s.created_at||now(), s.updated_at||now(), s.id, 'synced'])
