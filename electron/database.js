@@ -667,9 +667,17 @@ const citas = {
 
 // ==================== DASHBOARD ====================
 
+// Fecha local en Node (evita bug UTC: toISOString devuelve mañana después de las 21hs en Argentina)
+function localDateNode(d = new Date()) {
+  const y  = d.getFullYear()
+  const m  = String(d.getMonth() + 1).padStart(2, '0')
+  const dd = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${dd}`
+}
+
 const dashboard = {
   getStats: () => {
-    const hoy = new Date().toISOString().split('T')[0]
+    const hoy = localDateNode()
     const inicioMes = hoy.slice(0, 7) + '-01'
     return {
       citas_hoy:        qGet('SELECT COUNT(*) as n FROM citas WHERE fecha=?', [hoy])?.n || 0,
@@ -681,7 +689,7 @@ const dashboard = {
     }
   },
   getCitasPorDia: () => {
-    const hace7 = new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0]
+    const hace7 = localDateNode(new Date(Date.now() - 7 * 86400000))
     return qAll('SELECT fecha, COUNT(*) as total FROM citas WHERE fecha >= ? GROUP BY fecha ORDER BY fecha', [hace7])
   },
   getTopServicios: () => qAll(`
