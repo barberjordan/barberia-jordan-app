@@ -2,6 +2,9 @@ import React, { useEffect, useState, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { Plus, Pencil, Trash2, Zap, Droplets, Package, Home, Users, HelpCircle, Wifi } from 'lucide-react'
 
+const localDate = (d = new Date()) =>
+  `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
+
 function fmt(n) {
   return Number(n || 0).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
@@ -25,7 +28,7 @@ const FRECUENCIAS = [
 
 const EMPTY = {
   nombre: '', categoria: 'otro', monto: '', frecuencia: 'mensual',
-  fecha: new Date().toISOString().slice(0, 10), notas: '',
+  fecha: localDate(), notas: '',
 }
 
 function CategoriaChip({ value }) {
@@ -57,7 +60,7 @@ export default function Gastos() {
   const [guardando, setGuardando]       = useState(false)
   const [filtroCat, setFiltroCat]       = useState('todas')
   const [filtroFrec, setFiltroFrec]     = useState('todas')
-  const [mes, setMes]                   = useState(new Date().toISOString().slice(0, 7))
+  const [mes, setMes]                   = useState(localDate().slice(0, 7))
 
   async function cargar() {
     const data = await window.api.gastos.getAll()

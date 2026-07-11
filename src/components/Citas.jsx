@@ -3,6 +3,9 @@ import { createPortal } from 'react-dom'
 import { Plus, Pencil, Trash2, X, Calendar, Search, LayoutList, Users } from 'lucide-react'
 import { useSync } from '../context/SyncContext'
 
+const localDate = (d = new Date()) =>
+  `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
+
 const EMPTY = { cliente_id: '', barbero_id: '', servicios_ids: [], fecha: '', hora: '', estado: 'pendiente', notas: '', precio_total: '' }
 const ESTADOS = ['pendiente', 'confirmada', 'en proceso', 'completada', 'cancelada']
 const ESTADO_COLORS = {
@@ -105,7 +108,7 @@ export default function Citas() {
   }
 
   function abrirCrear() {
-    const hoy = new Date().toISOString().split('T')[0]
+    const hoy = localDate()
     setForm({ ...EMPTY, fecha: hoy }); setEditId(null); setModal(true)
   }
   function abrirEditar(c) {

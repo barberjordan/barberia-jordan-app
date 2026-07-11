@@ -1,4 +1,9 @@
 import React, { useEffect, useState, useMemo } from 'react'
+
+// Fecha local (evita bug UTC: toISOString devuelve mañana después de las 21hs en Argentina)
+function localDate(d = new Date()) {
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
+}
 import {
   Banknote, CreditCard, TrendingUp, TrendingDown, BadgeDollarSign,
   Plus, Trash2, ArrowUpCircle, ArrowDownCircle, ChevronUp, Check,
@@ -18,7 +23,7 @@ function MetodoBadge({ metodo }) {
 const EMPTY_MOV = { tipo: 'entrada', concepto: '', monto: '', metodo: 'efectivo', notas: '' }
 
 export default function Caja() {
-  const [fecha, setFecha]             = useState(() => new Date().toISOString().slice(0, 10))
+  const [fecha, setFecha]             = useState(() => localDate())
   const [citas, setCitas]             = useState([])
   const [gastosDia, setGastosDia]     = useState([])
   const [movimientos, setMovimientos] = useState([])
@@ -119,9 +124,9 @@ export default function Caja() {
   const balanceNeto = gananciaAdmin - totalGastos + balanceEf + balanceTr - Number(aperEfMonto) - Number(aperTrMonto)
 
   // Navegación de fechas
-  function prevDay() { const d = new Date(fecha + 'T00:00:00'); d.setDate(d.getDate() - 1); setFecha(d.toISOString().slice(0, 10)) }
-  function nextDay() { const d = new Date(fecha + 'T00:00:00'); d.setDate(d.getDate() + 1); setFecha(d.toISOString().slice(0, 10)) }
-  const esHoy = fecha === new Date().toISOString().slice(0, 10)
+  function prevDay() { const d = new Date(fecha + 'T00:00:00'); d.setDate(d.getDate() - 1); setFecha(localDate(d)) }
+  function nextDay() { const d = new Date(fecha + 'T00:00:00'); d.setDate(d.getDate() + 1); setFecha(localDate(d)) }
+  const esHoy = fecha === localDate()
   const fechaLabel = new Date(fecha + 'T00:00:00').toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })
 
   // ==================== SALDO INICIAL ====================
@@ -207,7 +212,7 @@ export default function Caja() {
             className="border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400" />
           <button onClick={nextDay} className="w-9 h-9 flex items-center justify-center border border-slate-200 rounded-lg hover:bg-slate-50 text-slate-500 text-xl">›</button>
           {!esHoy && (
-            <button onClick={() => setFecha(new Date().toISOString().slice(0, 10))}
+            <button onClick={() => setFecha(localDate())}
               className="text-xs px-3 py-2 border border-primary-300 text-primary-600 rounded-lg hover:bg-primary-50 transition">
               Hoy
             </button>

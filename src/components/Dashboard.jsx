@@ -4,6 +4,14 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pi
 
 const COLORS = ['#f97316', '#3b82f6', '#10b981', '#8b5cf6', '#f59e0b']
 
+// Fecha local (evita bug UTC: toISOString devuelve mañana después de las 21hs en Argentina)
+function localDate(d = new Date()) {
+  const y  = d.getFullYear()
+  const m  = String(d.getMonth() + 1).padStart(2, '0')
+  const dd = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${dd}`
+}
+
 function fmt(n) {
   return Number(n || 0).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
@@ -41,7 +49,7 @@ export default function Dashboard() {
   const [citas, setCitas]             = useState([])
   const [expandedBarbero, setExpandedBarbero] = useState(null)
   const [loading, setLoading]         = useState(true)
-  const [fecha, setFecha]             = useState(() => new Date().toISOString().slice(0, 10))
+  const [fecha, setFecha]             = useState(() => localDate())
 
   useEffect(() => {
     async function cargar() {
@@ -67,7 +75,7 @@ export default function Dashboard() {
   }, [])
 
   // ── hooks siempre antes del early return ──
-  const mesKey = new Date().toISOString().slice(0, 7)
+  const mesKey = localDate().slice(0, 7)
 
   // Servicios por barbero este mes (expandible en tabla)
   const serviciosPorBarbero = useMemo(() => {
@@ -172,10 +180,10 @@ export default function Dashboard() {
         const totalDiaBarberos = liquidacionDia.reduce((a, b) => a + b.pagoBarbero, 0)
         const totalDiaAdmin    = liquidacionDia.reduce((a, b) => a + b.gananciaAdmin, 0)
         const fechaLabel = new Date(fecha + 'T00:00:00').toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })
-        const esHoy = fecha === new Date().toISOString().slice(0, 10)
+        const esHoy = fecha === localDate()
 
-        function prevDay() { const d = new Date(fecha + 'T00:00:00'); d.setDate(d.getDate() - 1); setFecha(d.toISOString().slice(0, 10)) }
-        function nextDay() { const d = new Date(fecha + 'T00:00:00'); d.setDate(d.getDate() + 1); setFecha(d.toISOString().slice(0, 10)) }
+        function prevDay() { const d = new Date(fecha + 'T00:00:00'); d.setDate(d.getDate() - 1); setFecha(localDate(d)) }
+        function nextDay() { const d = new Date(fecha + 'T00:00:00'); d.setDate(d.getDate() + 1); setFecha(localDate(d)) }
 
         return (
           <div>
@@ -193,7 +201,7 @@ export default function Dashboard() {
                 <button onClick={nextDay}
                   className="w-8 h-8 flex items-center justify-center border border-slate-200 rounded-lg hover:bg-slate-50 text-slate-500 text-lg leading-none">›</button>
                 {!esHoy && (
-                  <button onClick={() => setFecha(new Date().toISOString().slice(0, 10))}
+                  <button onClick={() => setFecha(localDate())}
                     className="text-xs px-2.5 py-1.5 border border-primary-300 text-primary-600 rounded-lg hover:bg-primary-50 transition">
                     Hoy
                   </button>

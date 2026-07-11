@@ -1,4 +1,7 @@
 import React, { useEffect, useState } from 'react'
+
+const localDate = (d = new Date()) =>
+  `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
 import {
   RefreshCw, Download, CheckCircle, AlertCircle, Loader,
   Store, Wifi, Clock, FileSpreadsheet, AlertTriangle, Save,
@@ -157,7 +160,7 @@ export default function Configuracion() {
   const [intervalMs, setIntervalMs] = useState(30000)
 
   // -- Export --
-  const [exportMes, setExportMes]   = useState(new Date().toISOString().slice(0, 7))
+  const [exportMes, setExportMes]   = useState(localDate().slice(0, 7))
   const [exporting, setExporting]   = useState(false)
   const [exportOk, setExportOk]     = useState(false)
 

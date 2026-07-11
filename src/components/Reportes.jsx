@@ -5,6 +5,14 @@ import * as XLSX from 'xlsx'
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 
+// Fecha local (evita bug UTC: toISOString devuelve mañana después de las 21hs en Argentina)
+function localDate(d = new Date()) {
+  const y  = d.getFullYear()
+  const m  = String(d.getMonth() + 1).padStart(2, '0')
+  const dd = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${dd}`
+}
+
 function fmt(n) {
   return Number(n || 0).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
@@ -14,8 +22,8 @@ export default function Reportes() {
   const [comisiones, setComisiones] = useState([])
   const [historico, setHistorico]   = useState([])
   const [configPct, setConfigPct]   = useState([])
-  const [mes, setMes]               = useState(new Date().toISOString().slice(0, 7))
-  const [fecha, setFecha]           = useState(() => new Date().toISOString().slice(0, 10))
+  const [mes, setMes]               = useState(localDate().slice(0, 7))
+  const [fecha, setFecha]           = useState(() => localDate())
   const [expandedBarbero, setExpandedBarbero] = useState(null)
 
   useEffect(() => {
@@ -291,10 +299,10 @@ export default function Reportes() {
         const totalDiaBarberos = liquidacionDia.reduce((a, b) => a + b.pagoBarbero, 0)
         const totalDiaAdmin    = liquidacionDia.reduce((a, b) => a + b.gananciaAdmin, 0)
         const fechaLabel = new Date(fecha + 'T00:00:00').toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })
-        const esHoy = fecha === new Date().toISOString().slice(0, 10)
+        const esHoy = fecha === localDate()
 
-        function prevDay() { const d = new Date(fecha + 'T00:00:00'); d.setDate(d.getDate() - 1); setFecha(d.toISOString().slice(0, 10)) }
-        function nextDay() { const d = new Date(fecha + 'T00:00:00'); d.setDate(d.getDate() + 1); setFecha(d.toISOString().slice(0, 10)) }
+        function prevDay() { const d = new Date(fecha + 'T00:00:00'); d.setDate(d.getDate() - 1); setFecha(localDate(d)) }
+        function nextDay() { const d = new Date(fecha + 'T00:00:00'); d.setDate(d.getDate() + 1); setFecha(localDate(d)) }
 
         return (
           <div>
@@ -312,7 +320,7 @@ export default function Reportes() {
                 <button onClick={nextDay}
                   className="w-8 h-8 flex items-center justify-center border border-slate-200 rounded-lg hover:bg-slate-50 text-slate-500 text-lg leading-none">›</button>
                 {!esHoy && (
-                  <button onClick={() => setFecha(new Date().toISOString().slice(0, 10))}
+                  <button onClick={() => setFecha(localDate())}
                     className="text-xs px-2.5 py-1.5 border border-primary-300 text-primary-600 rounded-lg hover:bg-primary-50 transition">
                     Hoy
                   </button>
