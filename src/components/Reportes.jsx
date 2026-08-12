@@ -4,6 +4,7 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recha
 import * as XLSX from 'xlsx'
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
+import { usePrivacidad, BotonPrivacidad } from '../hooks/usePrivacidad'
 
 // Fecha local (evita bug UTC: toISOString devuelve mañana después de las 21hs en Argentina)
 function localDate(d = new Date()) {
@@ -25,6 +26,10 @@ export default function Reportes() {
   const [mes, setMes]               = useState(localDate().slice(0, 7))
   const [fecha, setFecha]           = useState(() => localDate())
   const [expandedBarbero, setExpandedBarbero] = useState(null)
+
+  // Modo privacidad: oculta todos los montos ($) de esta pantalla.
+  // No afecta a las exportaciones Excel/PDF, que siempre llevan los valores reales.
+  const { oculto, toggle, money } = usePrivacidad('priv_reportes')
 
   useEffect(() => {
     async function cargar() {
@@ -229,6 +234,7 @@ export default function Reportes() {
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-bold text-slate-800">Reportes</h1>
         <div className="flex items-center gap-3">
+          <BotonPrivacidad oculto={oculto} onToggle={toggle} />
           <input
             type="month" value={mes} onChange={e => setMes(e.target.value)}
             className="border border-slate-200 rounded-lg px-3 py-1.5 text-sm
@@ -252,8 +258,8 @@ export default function Reportes() {
         {[
           { label: 'Total citas',        value: citasMes.length,         color: 'text-blue-600',    bg: 'bg-blue-50' },
           { label: 'Completadas',        value: completadas.length,      color: 'text-green-600',   bg: 'bg-green-50' },
-          { label: 'Ingresos del mes',   value: `$${fmt(ingresosMes)}`,  color: 'text-primary-600', bg: 'bg-primary-50' },
-          { label: 'Tu ganancia',        value: `$${fmt(totalAdmin)}`,   color: 'text-green-700',   bg: 'bg-green-50' },
+          { label: 'Ingresos del mes',   value: money(ingresosMes),      color: 'text-primary-600', bg: 'bg-primary-50' },
+          { label: 'Tu ganancia',        value: money(totalAdmin),       color: 'text-green-700',   bg: 'bg-green-50' },
         ].map(({ label, value, color, bg }) => (
           <div key={label} className={`${bg} rounded-xl p-4 border border-slate-100`}>
             <p className="text-slate-500 text-xs">{label}</p>
@@ -270,7 +276,7 @@ export default function Reportes() {
           </div>
           <div>
             <p className="text-xs text-green-700 font-medium">Tu ganancia — {mes}</p>
-            <p className="text-2xl font-bold text-green-800">${fmt(totalAdmin)}</p>
+            <p className="text-2xl font-bold text-green-800">{money(totalAdmin)}</p>
           </div>
         </div>
         <div className="bg-purple-50 border border-purple-100 rounded-xl p-4 flex items-center gap-4">
@@ -279,7 +285,7 @@ export default function Reportes() {
           </div>
           <div>
             <p className="text-xs text-purple-700 font-medium">Promedio mensual (6 meses)</p>
-            <p className="text-2xl font-bold text-purple-800">${fmt(promedioAdmin)}</p>
+            <p className="text-2xl font-bold text-purple-800">{money(promedioAdmin)}</p>
           </div>
         </div>
         <div className="bg-amber-50 border border-amber-100 rounded-xl p-4 flex items-center gap-4">
@@ -288,7 +294,7 @@ export default function Reportes() {
           </div>
           <div>
             <p className="text-xs text-amber-700 font-medium">Pago total barberos — {mes}</p>
-            <p className="text-2xl font-bold text-amber-800">${fmt(totalBarberos)}</p>
+            <p className="text-2xl font-bold text-amber-800">{money(totalBarberos)}</p>
           </div>
         </div>
       </div>
@@ -336,7 +342,7 @@ export default function Reportes() {
                 </div>
                 <div>
                   <p className="text-xs text-amber-700 font-medium">A pagar a barberos</p>
-                  <p className="text-lg font-bold text-amber-800">${fmt(totalDiaBarberos)}</p>
+                  <p className="text-lg font-bold text-amber-800">{money(totalDiaBarberos)}</p>
                 </div>
               </div>
               <div className="bg-green-50 border border-green-100 rounded-xl p-4 flex items-center gap-3">
@@ -345,7 +351,7 @@ export default function Reportes() {
                 </div>
                 <div>
                   <p className="text-xs text-green-700 font-medium">Tu ganancia del día</p>
-                  <p className="text-lg font-bold text-green-800">${fmt(totalDiaAdmin)}</p>
+                  <p className="text-lg font-bold text-green-800">{money(totalDiaAdmin)}</p>
                 </div>
               </div>
             </div>
@@ -385,13 +391,13 @@ export default function Reportes() {
                             </div>
                           </td>
                           <td className="px-4 py-3 text-right text-slate-600">{b.citas}</td>
-                          <td className="px-4 py-3 text-right text-slate-700">${fmt(b.total)}</td>
+                          <td className="px-4 py-3 text-right text-slate-700">{money(b.total)}</td>
                           <td className="px-4 py-3 text-right font-semibold text-amber-600">
-                            ${fmt(b.pagoBarbero)}
+                            {money(b.pagoBarbero)}
                             <span className="ml-1 text-xs text-slate-400">({b.pct}%)</span>
                           </td>
                           <td className="px-4 py-3 text-right font-semibold text-green-600">
-                            ${fmt(b.gananciaAdmin)}
+                            {money(b.gananciaAdmin)}
                             <span className="ml-1 text-xs text-slate-400">({100 - b.pct}%)</span>
                           </td>
                         </tr>
@@ -422,9 +428,9 @@ export default function Reportes() {
                     <tr className="bg-slate-50 font-bold text-sm">
                       <td className="px-4 py-3 text-slate-700">Total</td>
                       <td className="px-4 py-3 text-right text-slate-700">{liquidacionDia.reduce((a, b) => a + b.citas, 0)}</td>
-                      <td className="px-4 py-3 text-right text-slate-700">${fmt(totalDiaVentas)}</td>
-                      <td className="px-4 py-3 text-right text-amber-600">${fmt(totalDiaBarberos)}</td>
-                      <td className="px-4 py-3 text-right text-green-600">${fmt(totalDiaAdmin)}</td>
+                      <td className="px-4 py-3 text-right text-slate-700">{money(totalDiaVentas)}</td>
+                      <td className="px-4 py-3 text-right text-amber-600">{money(totalDiaBarberos)}</td>
+                      <td className="px-4 py-3 text-right text-green-600">{money(totalDiaAdmin)}</td>
                     </tr>
                   )}
                 </tbody>
@@ -464,7 +470,7 @@ export default function Reportes() {
                     <span className="text-slate-700 font-medium">{b.nombre}</span>
                     <div className="flex items-center gap-4 text-slate-500">
                       <span>{b.citas} citas</span>
-                      <span className="font-semibold text-green-600">${fmt(b.ingresos)}</span>
+                      <span className="font-semibold text-green-600">{money(b.ingresos)}</span>
                     </div>
                   </div>
                 ))}
@@ -510,7 +516,7 @@ export default function Reportes() {
                     }`}>{c.estado}</span>
                   </td>
                   <td className="px-4 py-3 text-right font-medium text-slate-800">
-                    ${fmt(c.precio_total)}
+                    {money(c.precio_total)}
                   </td>
                 </tr>
               ))}

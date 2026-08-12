@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useMemo } from 'react'
 import { Calendar, Users, DollarSign, UserCheck, Clock, TrendingUp, Wallet, BadgeDollarSign, TrendingDown } from 'lucide-react'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend, LineChart, Line, CartesianGrid } from 'recharts'
+import { usePrivacidad, BotonPrivacidad, BlurPrivado } from '../hooks/usePrivacidad'
 
 const COLORS = ['#f97316', '#3b82f6', '#10b981', '#8b5cf6', '#f59e0b']
 
@@ -50,6 +51,9 @@ export default function Dashboard() {
   const [expandedBarbero, setExpandedBarbero] = useState(null)
   const [loading, setLoading]         = useState(true)
   const [fecha, setFecha]             = useState(() => localDate())
+
+  // Modo privacidad: oculta todos los montos ($) de esta pantalla
+  const { oculto, toggle, money } = usePrivacidad('priv_dashboard')
 
   useEffect(() => {
     async function cargar() {
@@ -155,21 +159,24 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-xl font-bold text-slate-800">Dashboard</h1>
-        <p className="text-slate-400 text-sm mt-0.5">
-          {new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
-        </p>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h1 className="text-xl font-bold text-slate-800">Dashboard</h1>
+          <p className="text-slate-400 text-sm mt-0.5">
+            {new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+          </p>
+        </div>
+        <BotonPrivacidad oculto={oculto} onToggle={toggle} />
       </div>
 
       {/* Stat cards */}
       <div className="grid grid-cols-2 xl:grid-cols-3 gap-4">
         <StatCard icon={Calendar}       label="Citas hoy"            value={stats.citas_hoy}                    color="primary" />
         <StatCard icon={Clock}          label="Citas este mes"       value={stats.citas_mes}                    color="blue" />
-        <StatCard icon={DollarSign}     label="Ingresos del mes"     value={`$${fmt(stats.ingresos_mes)}`}      color="green" />
-        <StatCard icon={BadgeDollarSign} label="Tu ganancia este mes" value={`$${fmt(totalGananciaAdmin)}`}     color="green"
+        <StatCard icon={DollarSign}     label="Ingresos del mes"     value={money(stats.ingresos_mes)}          color="green" />
+        <StatCard icon={BadgeDollarSign} label="Tu ganancia este mes" value={money(totalGananciaAdmin)}         color="green"
           sub="Solo citas completadas" />
-        <StatCard icon={TrendingUp}     label="Promedio mensual (6m)" value={`$${fmt(promedioAdmin)}`}          color="purple"
+        <StatCard icon={TrendingUp}     label="Promedio mensual (6m)" value={money(promedioAdmin)}              color="purple"
           sub="Tu ganancia promedio" />
         <StatCard icon={UserCheck}      label="Citas pendientes"     value={stats.citas_pendientes}             color="blue" />
       </div>
@@ -217,7 +224,7 @@ export default function Dashboard() {
                 </div>
                 <div>
                   <p className="text-xs text-amber-700 font-medium">A pagar a barberos</p>
-                  <p className="text-xl font-bold text-amber-800">${fmt(totalDiaBarberos)}</p>
+                  <p className="text-xl font-bold text-amber-800">{money(totalDiaBarberos)}</p>
                 </div>
               </div>
               <div className="bg-green-50 border border-green-100 rounded-xl p-4 flex items-center gap-4">
@@ -226,7 +233,7 @@ export default function Dashboard() {
                 </div>
                 <div>
                   <p className="text-xs text-green-700 font-medium">Tu ganancia del día</p>
-                  <p className="text-xl font-bold text-green-800">${fmt(totalDiaAdmin)}</p>
+                  <p className="text-xl font-bold text-green-800">{money(totalDiaAdmin)}</p>
                 </div>
               </div>
             </div>
@@ -267,13 +274,13 @@ export default function Dashboard() {
                             </div>
                           </td>
                           <td className="px-4 py-3 text-right text-slate-600">{b.citas}</td>
-                          <td className="px-4 py-3 text-right text-slate-700">${fmt(b.total)}</td>
+                          <td className="px-4 py-3 text-right text-slate-700">{money(b.total)}</td>
                           <td className="px-4 py-3 text-right">
-                            <span className="font-semibold text-amber-600">${fmt(b.pagoBarbero)}</span>
+                            <span className="font-semibold text-amber-600">{money(b.pagoBarbero)}</span>
                             <span className="ml-1 text-xs text-slate-400">({b.pct}%)</span>
                           </td>
                           <td className="px-4 py-3 text-right">
-                            <span className="font-semibold text-green-600">${fmt(b.gananciaAdmin)}</span>
+                            <span className="font-semibold text-green-600">{money(b.gananciaAdmin)}</span>
                             <span className="ml-1 text-xs text-slate-400">({100 - b.pct}%)</span>
                           </td>
                         </tr>
@@ -304,9 +311,9 @@ export default function Dashboard() {
                     <tr className="bg-slate-50 font-semibold">
                       <td className="px-4 py-3 text-slate-700">Total</td>
                       <td className="px-4 py-3 text-right text-slate-700">{liquidacionDia.reduce((a, b) => a + b.citas, 0)}</td>
-                      <td className="px-4 py-3 text-right text-slate-700">${fmt(totalDiaVentas)}</td>
-                      <td className="px-4 py-3 text-right text-amber-600">${fmt(totalDiaBarberos)}</td>
-                      <td className="px-4 py-3 text-right text-green-600">${fmt(totalDiaAdmin)}</td>
+                      <td className="px-4 py-3 text-right text-slate-700">{money(totalDiaVentas)}</td>
+                      <td className="px-4 py-3 text-right text-amber-600">{money(totalDiaBarberos)}</td>
+                      <td className="px-4 py-3 text-right text-green-600">{money(totalDiaAdmin)}</td>
                     </tr>
                   )}
                 </tbody>
@@ -321,17 +328,19 @@ export default function Dashboard() {
         <div className="bg-white rounded-xl p-5 shadow-sm border border-slate-100">
           <h2 className="font-semibold text-slate-700 mb-1">Balance últimos 6 meses</h2>
           <p className="text-xs text-slate-400 mb-4">Evolución de ingresos totales vs tu ganancia</p>
-          <ResponsiveContainer width="100%" height={200}>
-            <BarChart data={historico} barGap={4}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-              <XAxis dataKey="mes" tick={{ fontSize: 11 }} />
-              <YAxis tick={{ fontSize: 10 }} tickFormatter={v => `$${(v/1000).toFixed(0)}k`} />
-              <Tooltip formatter={(v, name) => [`$${fmt(v)}`, name]} />
-              <Bar dataKey="total_ventas"  name="Total ingresos"  fill="#93c5fd" radius={[3,3,0,0]} />
-              <Bar dataKey="ganancia_admin" name="Tu ganancia"    fill="#22c55e" radius={[3,3,0,0]} />
-              <Bar dataKey="pago_barberos"  name="Pago barberos"  fill="#fbbf24" radius={[3,3,0,0]} />
-            </BarChart>
-          </ResponsiveContainer>
+          <BlurPrivado oculto={oculto} height={200}>
+            <ResponsiveContainer width="100%" height={200}>
+              <BarChart data={historico} barGap={4}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                <XAxis dataKey="mes" tick={{ fontSize: 11 }} />
+                <YAxis tick={{ fontSize: 10 }} tickFormatter={v => oculto ? '' : `$${(v/1000).toFixed(0)}k`} />
+                {!oculto && <Tooltip formatter={(v, name) => [`$${fmt(v)}`, name]} />}
+                <Bar dataKey="total_ventas"  name="Total ingresos"  fill="#93c5fd" radius={[3,3,0,0]} />
+                <Bar dataKey="ganancia_admin" name="Tu ganancia"    fill="#22c55e" radius={[3,3,0,0]} />
+                <Bar dataKey="pago_barberos"  name="Pago barberos"  fill="#fbbf24" radius={[3,3,0,0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </BlurPrivado>
           {/* Resumen numérico */}
           <div className="grid grid-cols-3 gap-3 mt-4">
             {[
@@ -341,7 +350,7 @@ export default function Dashboard() {
             ].map(({ label, val, color }) => (
               <div key={label} className="bg-slate-50 rounded-lg p-3 text-center">
                 <p className="text-xs text-slate-400">{label}</p>
-                <p className={`font-bold text-sm mt-0.5 ${color}`}>${fmt(val)}</p>
+                <p className={`font-bold text-sm mt-0.5 ${color}`}>{money(val)}</p>
               </div>
             ))}
           </div>
