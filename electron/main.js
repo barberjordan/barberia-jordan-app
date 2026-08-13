@@ -119,8 +119,33 @@ function createWindow() {
     mainWindow.loadFile(path.join(__dirname, '../dist/index.html'))
   }
 
+  // Red de seguridad: si 'ready-to-show' nunca llega (fallo al cargar la UI),
+  // mostramos la ventana igual para que el usuario vea algo y no un proceso fantasma
+  const failsafeShow = setTimeout(() => {
+    if (mainWindow && !mainWindow.isDestroyed() && !mainWindow.isVisible()) {
+      mainWindow.show()
+    }
+  }, 10000)
+
   mainWindow.once('ready-to-show', () => {
+    clearTimeout(failsafeShow)
     mainWindow.show()
+  })
+
+  // Si la interfaz no carga, avisar en vez de quedar en negro
+  mainWindow.webContents.on('did-fail-load', (_e, code, desc, url) => {
+    if (code === -3) return // abortado por navegación, no es un error real
+    dialog.showErrorBox(
+      'Barbería Jordan — error al cargar la interfaz',
+      `${desc} (código ${code})\n${url}`
+    )
+  })
+
+  mainWindow.webContents.on('render-process-gone', (_e, details) => {
+    dialog.showErrorBox(
+      'Barbería Jordan — la interfaz se cerró inesperadamente',
+      `Motivo: ${details.reason}`
+    )
   })
 
   mainWindow.on('closed', () => {
@@ -141,8 +166,19 @@ function createWindow() {
 
 // ==================== INICIO ====================
 app.whenReady().then(async () => {
-  // Inicializa la BD local (async porque sql.js carga un archivo .wasm)
-  await initDatabase()
+  // Inicializa la BD local (async porque sql.js carga un archivo .wasm).
+  // Si esto falla y no lo capturamos, createWindow() nunca corre y el proceso
+  // queda vivo SIN ventana (invisible para el usuario, visible en el Admin. de tareas).
+  try {
+    await initDatabase()
+  } catch (err) {
+    dialog.showErrorBox(
+      'Barbería Jordan — no se pudo iniciar',
+      `Error al abrir la base de datos local:\n\n${err.stack || err.message}`
+    )
+    app.quit()
+    return
+  }
 
   // Crea la ventana
   createWindow()
@@ -152,6 +188,12 @@ app.whenReady().then(async () => {
 
   // Configura actualizaciones automáticas
   configurarAutoUpdater()
+}).catch(err => {
+  dialog.showErrorBox(
+    'Barbería Jordan — no se pudo iniciar',
+    `Error inesperado al arrancar:\n\n${err?.stack || err}`
+  )
+  app.quit()
 })
 
 app.on('window-all-closed', () => {

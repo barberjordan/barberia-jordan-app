@@ -75,10 +75,20 @@ async function initDatabase() {
     locateFile: (file) => path.join(__dirname, '..', 'node_modules', 'sql.js', 'dist', file),
   })
 
-  // Carga la BD existente o crea una nueva
+  // Carga la BD existente o crea una nueva.
+  // Si el archivo está corrupto o truncado, lo respaldamos y arrancamos limpio:
+  // antes esto tiraba una excepción y la app se quedaba sin ventana.
   if (fs.existsSync(dbPath)) {
-    const fileBuffer = fs.readFileSync(dbPath)
-    db = new SQL.Database(fileBuffer)
+    try {
+      const fileBuffer = fs.readFileSync(dbPath)
+      db = new SQL.Database(fileBuffer)
+      db.exec('SELECT count(*) FROM sqlite_master') // valida que sea legible de verdad
+    } catch (err) {
+      const backup = `${dbPath}.corrupta-${Date.now()}`
+      try { fs.copyFileSync(dbPath, backup) } catch { /* ignore */ }
+      console.error('⚠️ BD ilegible, respaldada en', backup, '—', err.message)
+      db = new SQL.Database()
+    }
   } else {
     db = new SQL.Database()
   }
