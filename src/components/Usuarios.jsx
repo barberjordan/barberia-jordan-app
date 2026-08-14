@@ -30,7 +30,7 @@ export default function Usuarios() {
   // Devuelve el porcentaje del barbero vinculado al usuario
   function getPct(u) {
     if (!u.barbero_id) return null
-    return comisiones.find(c => c.barbero_id === u.barbero_id)?.porcentaje_barbero ?? 55
+    return comisiones.find(c => c.barbero_id === u.barbero_id)?.porcentaje_barbero ?? 50
   }
 
   // ── Selección ──
@@ -61,7 +61,7 @@ export default function Usuarios() {
   function abrirCrear() { setForm(EMPTY); setEditId(null); setModal(true) }
 
   function abrirEditar(u) {
-    const pct = getPct(u) ?? 55
+    const pct = getPct(u) ?? 50
     setForm({ ...u, password: '', porcentaje_comision: pct })
     setEditId(u.id)
     setModal(true)

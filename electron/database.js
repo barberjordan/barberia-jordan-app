@@ -188,7 +188,7 @@ async function initDatabase() {
   db.run(`
     CREATE TABLE IF NOT EXISTS comisiones_config (
       barbero_id         INTEGER PRIMARY KEY,
-      porcentaje_barbero REAL    DEFAULT 40,
+      porcentaje_barbero REAL    DEFAULT 50,
       updated_at         TEXT    DEFAULT (datetime('now'))
     )
   `)
@@ -336,10 +336,25 @@ const usuarios = {
           [s.nombre, s.rol||'empleado', s.activo??1, s.updated_at||now(), 'synced', s.id, byEmail.id])
         continue
       }
-      // 3. NO insertar usuarios nuevos desde el servidor — solo actualizamos los que ya existen localmente
-      // (evita que usuarios creados en el servidor aparezcan como fantasmas en la app)
-      console.log(`⚠️ Usuario del servidor ignorado (no existe localmente): ${s.nombre} <${s.email}>`)
-      continue
+      // 3. Insertar el usuario que existe en la nube pero no en esta PC.
+      //    El servidor nunca envía contraseñas, así que se guarda un placeholder imposible
+      //    de tipear: el usuario aparece en la lista, pero no puede iniciar sesión en el
+      //    programa hasta que se le asigne una clave desde la pantalla Usuarios.
+      if (!s.email) continue
+      const barberoLocal = s.barbero_id
+        ? qGet('SELECT id FROM barberos WHERE server_id=?', [s.barbero_id])
+        : null
+      qRun(
+        `INSERT INTO usuarios (nombre,email,password,rol,activo,barbero_id,created_at,updated_at,server_id,sync_status)
+         VALUES (?,?,?,?,?,?,?,?,?,?)`,
+        [
+          s.nombre, s.email,
+          `__sin_clave__${Math.random().toString(36).slice(2)}`,
+          s.rol || 'empleado', s.activo ?? 1, barberoLocal?.id ?? null,
+          s.created_at || now(), s.updated_at || now(), s.id, 'synced',
+        ]
+      )
+      console.log(`📥 Usuario nuevo desde el servidor: ${s.nombre} <${s.email}>`)
     }
   },
 }
@@ -398,9 +413,18 @@ const barberos = {
             [s.nombre, s.telefono||null, s.email||null, s.especialidad||null, s.activo??1, s.updated_at||now(), 'synced', s.id, existing.id])
           localId = existing.id
         } else {
-          // NO insertar barberos nuevos desde el servidor — evita fantasmas
-          console.log(`⚠️ Barbero del servidor ignorado (no existe localmente): ${s.nombre}`)
-          continue
+          // Insertar el barbero que existe en la nube pero no en esta PC.
+          // Sin esto, una instalación nueva nunca recibe barberos (ni sus comisiones).
+          qRun(
+            `INSERT INTO barberos (nombre,telefono,email,especialidad,activo,created_at,updated_at,server_id,sync_status)
+             VALUES (?,?,?,?,?,?,?,?,?)`,
+            [
+              s.nombre, s.telefono || null, s.email || null, s.especialidad || null, s.activo ?? 1,
+              s.created_at || now(), s.updated_at || now(), s.id, 'synced',
+            ]
+          )
+          localId = lastId()
+          console.log(`📥 Barbero nuevo desde el servidor: ${s.nombre}`)
         }
       }
 
@@ -729,12 +753,12 @@ const dashboard = {
         COALESCE(SUM(c.precio_total), 0) AS total_ventas,
         COALESCE(SUM(
           c.precio_total
-          * COALESCE((SELECT porcentaje_barbero FROM comisiones_config WHERE barbero_id = b.id), 40)
+          * COALESCE((SELECT porcentaje_barbero FROM comisiones_config WHERE barbero_id = b.id), 50)
           / 100.0
         ), 0) AS pago_barberos,
         COALESCE(SUM(
           c.precio_total
-          * (100 - COALESCE((SELECT porcentaje_barbero FROM comisiones_config WHERE barbero_id = b.id), 40))
+          * (100 - COALESCE((SELECT porcentaje_barbero FROM comisiones_config WHERE barbero_id = b.id), 50))
           / 100.0
         ), 0) AS ganancia_admin
       FROM citas c
@@ -766,14 +790,14 @@ const dashboard = {
         COALESCE(SUM(c.precio_total), 0)         AS total_ventas,
         COALESCE(
           (SELECT porcentaje_barbero FROM comisiones_config WHERE barbero_id = b.id),
-          40
+          50
         ) AS pct_barbero,
         COALESCE(SUM(c.precio_total), 0)
-          * COALESCE((SELECT porcentaje_barbero FROM comisiones_config WHERE barbero_id = b.id), 40)
+          * COALESCE((SELECT porcentaje_barbero FROM comisiones_config WHERE barbero_id = b.id), 50)
           / 100.0
           AS pago_barbero,
         COALESCE(SUM(c.precio_total), 0)
-          * (100 - COALESCE((SELECT porcentaje_barbero FROM comisiones_config WHERE barbero_id = b.id), 40))
+          * (100 - COALESCE((SELECT porcentaje_barbero FROM comisiones_config WHERE barbero_id = b.id), 50))
           / 100.0
           AS ganancia_admin
       FROM barberos b
@@ -813,7 +837,7 @@ const comisionesConfig = {
   /** Devuelve [{barbero_id, nombre, porcentaje_barbero}] para todos los barberos activos */
   getAll: () => qAll(`
     SELECT b.id AS barbero_id, b.nombre,
-      COALESCE(cc.porcentaje_barbero, 40) AS porcentaje_barbero
+      COALESCE(cc.porcentaje_barbero, 50) AS porcentaje_barbero
     FROM barberos b
     LEFT JOIN comisiones_config cc ON cc.barbero_id = b.id
     WHERE b.activo = 1

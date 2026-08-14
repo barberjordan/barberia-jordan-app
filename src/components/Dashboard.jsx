@@ -107,7 +107,7 @@ export default function Dashboard() {
     const map = {}
     for (const c of citasDia) {
       const key = c.barbero_nombre || 'Sin asignar'
-      const pct = configPct.find(p => p.barbero_id === c.barbero_id)?.porcentaje_barbero ?? 55
+      const pct = configPct.find(p => p.barbero_id === c.barbero_id)?.porcentaje_barbero ?? 50
       if (!map[key]) map[key] = { nombre: key, citas: 0, total: 0, pct, svcs: {} }
       map[key].citas++
       map[key].total += Number(c.precio_total || 0)
