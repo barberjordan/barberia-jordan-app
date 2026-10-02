@@ -103,6 +103,13 @@ contextBridge.exposeInMainWorld('api', {
     delete:     (id)        => ipcRenderer.invoke('caja:delete', id),
   },
 
+  // ---- MANTENIMIENTO DEL SISTEMA ----
+  mantenimiento: {
+    estado:       ()      => ipcRenderer.invoke('mantenimiento:estado'),
+    informarPago: (data)  => ipcRenderer.invoke('mantenimiento:informarPago', data),
+    ocultarHoy:   ()      => ipcRenderer.invoke('mantenimiento:ocultarHoy'),
+  },
+
   // ---- APP ----
   app: {
     getVersion: () => ipcRenderer.invoke('app:getVersion'),

@@ -4,6 +4,7 @@ const XLSX = require('xlsx')
 const { autoUpdater } = require('electron-updater')
 const { initDatabase, loginLocal, usuarios, barberos, clientes, servicios, citas, dashboard, config, comisionesConfig, gastos, cajaMovimientos } = require('./database')
 const sync = require('./sync')
+const mantenimiento = require('./mantenimiento')
 
 const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged
 
@@ -324,3 +325,8 @@ ipcMain.handle('caja:getAll',       ()          => cajaMovimientos.getAll())
 ipcMain.handle('caja:getByFecha',   (_e, fecha) => cajaMovimientos.getByFecha(fecha))
 ipcMain.handle('caja:create',       (_e, data)  => cajaMovimientos.create(data))
 ipcMain.handle('caja:delete',       (_e, id)    => { cajaMovimientos.delete(id); return true })
+
+// MANTENIMIENTO DEL SISTEMA
+ipcMain.handle('mantenimiento:estado',       ()          => mantenimiento.getEstado())
+ipcMain.handle('mantenimiento:informarPago', (_e, data)  => mantenimiento.informarPago(data))
+ipcMain.handle('mantenimiento:ocultarHoy',   ()          => mantenimiento.ocultarHoy())

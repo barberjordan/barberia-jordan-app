@@ -18,6 +18,7 @@ import Caja from './components/Caja'
 import Gastos from './components/Gastos'
 import Temas from './components/Temas'
 import NotificacionCita from './components/NotificacionCita'
+import AvisoMantenimiento from './components/AvisoMantenimiento'
 
 function AppInner() {
   const { user } = useAuth()
@@ -34,6 +35,8 @@ function AppInner() {
       <div className="flex h-screen overflow-hidden" style={{ backgroundColor: 'var(--content-bg)' }}>
         <Sidebar open={sidebarOpen} />
         <div className="flex flex-col flex-1 overflow-hidden">
+          {/* Aviso de la factura de mantenimiento — solo para el admin */}
+          <AvisoMantenimiento />
           <Navbar onToggleSidebar={() => setSidebarOpen(o => !o)} />
           <main className="flex-1 overflow-y-auto p-6">
             <Routes>
